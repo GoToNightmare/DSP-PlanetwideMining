@@ -1,7 +1,5 @@
-﻿using System;
-using BepInEx;
+﻿using BepInEx;
 using HarmonyLib;
-using UnityEngine;
 
 namespace PlanetwideMining
 {
@@ -17,59 +15,20 @@ namespace PlanetwideMining
 		{
 			Logger.LogInfo($"Plugin {PluginName} is loaded!");
 
-			PatchMiners.ApplyPatch();
-		}
-
-
-		private void OnDestroy()
-		{
-			PatchMiners.RemovePatch();
+			var harmony = new Harmony("PlanetwideMining");
+			harmony.PatchAll();
 		}
 	}
 
-	public partial class PatchMiners
+
+	[HarmonyPatch(typeof(BuildTool_Click))]
+	[HarmonyPatch("CheckBuildConditions")]
+	public static partial class PatchMiners
 	{
-		private static Harmony harmonyInstance;
-
-		private const string MethodToPatch = "CheckBuildConditions";
-		private static readonly Type TypeToPatch = typeof(BuildTool_Click);
-
-		private static readonly string PatchId = $"__Method patch: {MethodToPatch}";
-
-
-		public static void ApplyPatch()
+		public static bool Prefix(BuildTool_Click __instance, ref bool __result,  ref int[] ____tmp_ids)
 		{
-			try
-			{
-				harmonyInstance = new Harmony(PatchId);
-
-				var original = TypeToPatch.GetMethod(MethodToPatch);
-
-				var prefix = typeof(PatchMiners).GetMethod(nameof(PrefixPatch));
-
-				harmonyInstance.Patch(original, prefix: new HarmonyMethod(prefix));
-			}
-			catch (Exception e)
-			{
-				Debug.LogError($"[PlanetwideMining] ApplyPatch for \'{MethodToPatch}\' failed.\n{e}");
-			}
-		}
-
-
-		public static void RemovePatch()
-		{
-			try
-			{
-				if (harmonyInstance == null) return;
-
-				var original = TypeToPatch.GetMethod(MethodToPatch);
-
-				harmonyInstance.Unpatch(original, HarmonyPatchType.Prefix, PatchId);
-			}
-			catch (Exception e)
-			{
-				Debug.LogError($"[PlanetwideMining] RemovePatch for \'{MethodToPatch}\' failed.\n{e}");
-			}
+			__result = CheckBuildConditions(ref __instance, ref ____tmp_ids);
+			return false;
 		}
 	}
 }
