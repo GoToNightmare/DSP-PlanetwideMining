@@ -1,12 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
+using PowerNetworkStructures;
 using UnityEngine;
 
 namespace PlanetwideMining
 {
 	public static partial class PatchMiners
 	{
-		public static bool CheckBuildConditions(ref BuildTool_Click buildToolClick, ref int[] this_tmp_ids)
+		public static bool CheckBuildConditions(
+			ref BuildTool_Click buildToolClick, 
+			ref int[] this_tmp_ids, 
+			ref Collider[] thisTmpCols,
+			ref int thisTmpInhandId, 
+			ref int thisTmpInhandCount, 
+			ref int thisOverlappedCount, 
+			ref int[] this_overlappedIds, 
+			ref StorageComponent this_storageComponent)
 		{
 			if (buildToolClick.buildPreviews.Count == 0)
 			{
@@ -98,7 +107,7 @@ namespace PlanetwideMining
 							// Debug.LogError($"[333] prebuildData.paramCount {prebuildData.paramCount}");
 							// Debug.LogError($"[444] prebuildData.parameters {prebuildData.parameters?.Length} :: {prebuildData.parameters?.Count(v => v != default)}\n");
 
-							Array.Clear(BuildTool._tmp_ids, 0, BuildTool._tmp_ids.Length);
+							Array.Clear(this_tmp_ids, 0, this_tmp_ids.Length);
 							if (prebuildData.paramCount == 0)
 							{
 								buildPreview.condition = EBuildCondition.NeedResource;
@@ -107,10 +116,10 @@ namespace PlanetwideMining
 						}
 						else if (buildPreview.desc.oilMiner)
 						{
-							Array.Clear(BuildTool._tmp_ids, 0, BuildTool._tmp_ids.Length);
+							Array.Clear(this_tmp_ids, 0, this_tmp_ids.Length);
 							Vector3 vector5 = vector;
 							Vector3 vector6 = -up;
-							int veinsInAreaNonAlloc2 = buildToolClick.actionBuild.nearcdLogic.GetVeinsInAreaNonAlloc(vector5, 10f, BuildTool._tmp_ids);
+							int veinsInAreaNonAlloc2 = buildToolClick.actionBuild.nearcdLogic.GetVeinsInAreaNonAlloc(vector5, 10f, this_tmp_ids);
 							PrebuildData prebuildData2 = default(PrebuildData);
 							prebuildData2.InitParametersArray(veinsInAreaNonAlloc2);
 							VeinData[] veinPool2 = buildToolClick.factory.veinPool;
@@ -119,16 +128,16 @@ namespace PlanetwideMining
 							Vector3 pos = vector5;
 							for (int k = 0; k < veinsInAreaNonAlloc2; k++)
 							{
-								if (BuildTool._tmp_ids[k] != 0 && veinPool2[BuildTool._tmp_ids[k]].id == BuildTool._tmp_ids[k] && veinPool2[BuildTool._tmp_ids[k]].type == EVeinType.Oil)
+								if (this_tmp_ids[k] != 0 && veinPool2[this_tmp_ids[k]].id == this_tmp_ids[k] && veinPool2[this_tmp_ids[k]].type == EVeinType.Oil)
 								{
-									Vector3 pos2 = veinPool2[BuildTool._tmp_ids[k]].pos;
+									Vector3 pos2 = veinPool2[this_tmp_ids[k]].pos;
 									Vector3 vector7 = pos2 - vector5;
 									float d = Vector3.Dot(vector6, vector7);
 									float sqrMagnitude2 = (vector7 - vector6 * d).sqrMagnitude;
 									if (sqrMagnitude2 < num5)
 									{
 										num5 = sqrMagnitude2;
-										num4 = BuildTool._tmp_ids[k];
+										num4 = this_tmp_ids[k];
 										pos = pos2;
 									}
 								}
@@ -150,7 +159,7 @@ namespace PlanetwideMining
 							quaternion = (pose.rotation = (buildPreview.lrot2 = (buildPreview.lrot = Maths.SphericalRotation(vector8, buildToolClick.yaw))));
 							forward = pose.forward;
 							up = pose.up;
-							Array.Clear(BuildTool._tmp_ids, 0, BuildTool._tmp_ids.Length);
+							Array.Clear(this_tmp_ids, 0, this_tmp_ids.Length);
 						}
 
 						if (buildPreview.desc.isTank || buildPreview.desc.isStorage || buildPreview.desc.isLab || buildPreview.desc.isSplitter)
@@ -253,8 +262,8 @@ namespace PlanetwideMining
 										mask = 425984;
 									}
 
-									Array.Clear(BuildTool._tmp_cols, 0, BuildTool._tmp_cols.Length);
-									int num12 = Physics.OverlapBoxNonAlloc(colliderData.pos, colliderData.ext, BuildTool._tmp_cols, colliderData.q, mask, QueryTriggerInteraction.Collide);
+									Array.Clear(thisTmpCols, 0, thisTmpCols.Length);
+									int num12 = Physics.OverlapBoxNonAlloc(colliderData.pos, colliderData.ext, thisTmpCols, colliderData.q, mask, QueryTriggerInteraction.Collide);
 									if (num12 > 0)
 									{
 										bool flag6 = false;
@@ -263,7 +272,7 @@ namespace PlanetwideMining
 										while (num13 < num12 && buildPreview.coverObjId == 0)
 										{
 											ColliderData colliderData3;
-											bool colliderData2 = physics.GetColliderData(BuildTool._tmp_cols[num13], out colliderData3);
+											bool colliderData2 = physics.GetColliderData(thisTmpCols[num13], out colliderData3);
 											int num14 = 0;
 											if (colliderData2 && colliderData3.isForBuild)
 											{
@@ -277,7 +286,7 @@ namespace PlanetwideMining
 												}
 											}
 
-											Collider collider = BuildTool._tmp_cols[num13];
+											Collider collider = thisTmpCols[num13];
 											if (collider.gameObject.layer == 18)
 											{
 												BuildPreviewModel component = collider.GetComponent<BuildPreviewModel>();
@@ -370,14 +379,14 @@ namespace PlanetwideMining
 							{
 								int id = buildPreview.item.ID;
 								int num15 = 1;
-								if (buildToolClick.tmpInhandId == id && buildToolClick.tmpInhandCount > 0)
+								if (thisTmpInhandId == id && thisTmpInhandCount > 0)
 								{
 									num15 = 1;
-									buildToolClick.tmpInhandCount--;
+									thisTmpInhandCount--;
 								}
 								else
 								{
-									buildToolClick.tmpPackage.TakeTailItems(ref id, ref num15, false);
+									this_storageComponent.TakeTailItems(ref id, ref num15, false);
 								}
 
 								if (num15 == 0)
@@ -595,10 +604,10 @@ namespace PlanetwideMining
 								if (buildPreview.desc.isEjector)
 								{
 									buildToolClick.GetOverlappedObjectsNonAlloc(vector, 12f, 14.5f, false);
-									for (int num43 = 0; num43 < BuildTool._overlappedCount; num43++)
+									for (int num43 = 0; num43 < thisOverlappedCount; num43++)
 									{
-										PrefabDesc prefabDesc = buildToolClick.GetPrefabDesc(BuildTool._overlappedIds[num43]);
-										Vector3 position = buildToolClick.GetObjectPose(BuildTool._overlappedIds[num43]).position;
+										PrefabDesc prefabDesc = buildToolClick.GetPrefabDesc(this_overlappedIds[num43]);
+										Vector3 position = buildToolClick.GetObjectPose(this_overlappedIds[num43]).position;
 										if (position.magnitude - buildToolClick.planet.realRadius + prefabDesc.cullingHeight > 4.9f)
 										{
 											float num44 = vector.x - position.x;
