@@ -1,4 +1,4 @@
-## Dyson Sphere Program: Game Speed Mod   
+## Dyson Sphere Program: PlanetwideMining   
 This mod lets you mine resources everywhere, planetwide.
 
 ### Features
