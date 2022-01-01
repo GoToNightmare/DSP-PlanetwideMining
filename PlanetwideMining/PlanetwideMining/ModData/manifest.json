@@ -1,0 +1,9 @@
+{
+    "name": "PlanetwideMining",
+    "version_number": "1",
+    "website_url": "https://github.com/GoToNightmare/DSP-PlanetwideMining",
+    "description": "This mod lets you mine resources everywhere, planetwide.",
+    "dependencies": [
+        "xiaoye97-BepInEx-5.4.5"
+    ]
+}
