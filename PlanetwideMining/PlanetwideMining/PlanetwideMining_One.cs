@@ -8,13 +8,13 @@ namespace PlanetwideMining
 	public static partial class PatchMiners
 	{
 		public static bool CheckBuildConditions(
-			ref BuildTool_Click buildToolClick, 
-			ref int[] this_tmp_ids, 
+			ref BuildTool_Click buildToolClick,
+			ref int[] this_tmp_ids,
 			ref Collider[] thisTmpCols,
-			ref int thisTmpInhandId, 
-			ref int thisTmpInhandCount, 
-			ref int thisOverlappedCount, 
-			ref int[] this_overlappedIds, 
+			ref int thisTmpInhandId,
+			ref int thisTmpInhandCount,
+			ref int thisOverlappedCount,
+			ref int[] this_overlappedIds,
 			ref StorageComponent this_storageComponent)
 		{
 			if (buildToolClick.buildPreviews.Count == 0)
@@ -87,11 +87,11 @@ namespace PlanetwideMining
 							// Debug.LogError($"[000] veinPool.Length {veinPool.Length}");
 							if (prebuildData.parameters != null)
 							{
-								const EVeinType cachedVeinType = EVeinType.Copper;
+								EVeinType targetVeinType = PlanetwideMining.ResourceForGlobalMining;
 								List<int> newPrebuildDataParameters = new List<int>();
 								for (int iaa = 0; iaa < veinPool.Length; iaa++)
 								{
-									if (veinPool[iaa].type != cachedVeinType) continue;
+									if (veinPool[iaa].type != targetVeinType) continue;
 									newPrebuildDataParameters.Add(veinPool[iaa].id);
 								}
 

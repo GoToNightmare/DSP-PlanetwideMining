@@ -1,4 +1,7 @@
-﻿using BepInEx;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using BepInEx;
 using HarmonyLib;
 using UnityEngine;
 
@@ -11,6 +14,8 @@ namespace PlanetwideMining
 		private const string PluginName = "PlanetwideMining";
 		private const string PluginVersion = "0.1";
 
+		public static EVeinType ResourceForGlobalMining = EVeinType.None;
+
 
 		private void Awake()
 		{
@@ -19,6 +24,46 @@ namespace PlanetwideMining
 			var harmony = new Harmony("PlanetwideMining");
 			harmony.PatchAll();
 		}
+
+
+		private void Update()
+		{
+			if (Input.GetKeyDown(KeyCode.PageUp))
+			{
+				SwitchEnumValue();
+			}
+		}
+
+
+		private void SwitchEnumValue()
+		{
+			Assert.NotNull(ResourceTypes);
+			Assert.True(ResourceTypes.Count > 0);
+
+			var newElement = ResourceTypes.SkipWhile(x => x != ResourceForGlobalMining).Skip(1).DefaultIfEmpty(ResourceTypes[0]).FirstOrDefault();
+			ResourceForGlobalMining = newElement;
+		}
+
+
+		private static readonly List<EVeinType> ResourceTypes = new List<EVeinType>()
+		{
+			// EVeinType.None,
+			EVeinType.Iron, //
+			EVeinType.Copper, //
+			EVeinType.Silicium, //
+			EVeinType.Titanium, //
+			EVeinType.Stone, //
+			EVeinType.Coal, //
+			// EVeinType.Oil, //
+			EVeinType.Fireice, //
+			EVeinType.Diamond, // kimberit ore?
+			EVeinType.Fractal, //
+			// EVeinType.Crysrub,
+			// EVeinType.Grat,
+			// EVeinType.Bamboo,
+			// EVeinType.Mag,
+			// EVeinType.Max,
+		};
 	}
 
 
