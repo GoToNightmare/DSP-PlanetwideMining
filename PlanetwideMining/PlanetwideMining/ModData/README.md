@@ -1,6 +1,8 @@
 ## Dyson Sphere Program: PlanetwideMining   
 This mod lets you mine resources everywhere, planetwide.
 
+ <img src="https://i.giphy.com/media/6XuYopT3fCyhEJ4v1F/giphy.webp" width="640" height="360" />
+
 ### Features
 - Allows to place "Mining machine" everywhere, without veins.
 - KeyCode.PageUp - key to switch resource type.
@@ -30,3 +32,9 @@ This mod lets you mine resources everywhere, planetwide.
 
 #### v0.0.3
 - Added Missing resources
+
+#### v0.0.4
+- Added gif
+
+#### v0.0.5
+- Fixed .md
