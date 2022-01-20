@@ -71,24 +71,29 @@ namespace PlanetwideMining
 	[HarmonyPatch("CheckBuildConditions")]
 	public static partial class PatchMiners
 	{
-		public static bool Prefix(BuildTool_Click __instance,
-			ref bool __result,
-			ref int[] ____tmp_ids,
-			ref Collider[] ____tmp_cols,
+		public static bool Prefix(
+			BuildTool_Click __instance, // required
+			ref bool __result, // required
+			ref int[] ____tmp_ids, // BuildTool._tmp_ids
+			ref Collider[] ____tmp_cols, // BuildTool._tmp_cols
 			ref int ___tmpInhandId,
 			ref int ___tmpInhandCount,
+			ref StorageComponent ___tmpPackage,
 			ref int ____overlappedCount,
-			ref int[] ____overlappedIds,
-			ref StorageComponent ___tmpPackage)
+			ref int[] ____overlappedIds
+		)
 		{
-			__result = CheckBuildConditions(ref __instance,
-				ref ____tmp_ids,
-				ref ____tmp_cols,
+			__result = CheckBuildConditions(
+				__instance, // required
+				ref __result, // required
+				ref ____tmp_ids, // BuildTool._tmp_ids
+				ref ____tmp_cols, // BuildTool._tmp_cols
 				ref ___tmpInhandId,
 				ref ___tmpInhandCount,
+				ref ___tmpPackage,
 				ref ____overlappedCount,
-				ref ____overlappedIds,
-				ref ___tmpPackage);
+				ref ____overlappedIds
+			);
 
 			return false;
 		}
