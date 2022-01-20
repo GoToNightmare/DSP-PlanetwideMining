@@ -24,17 +24,21 @@ This mod lets you mine resources everywhere, planetwide.
 - If you have any mod ideas, you can make suggestions [here](https://github.com/GoToNightmare/DSP-PlanetwideMining/issues)
 
 ### Updates
-#### V0.0.1
-- Initial
 
-#### v0.0.2
-- Readme fixes
+#### v0.0.6
+- Updates for patch
 
-#### v0.0.3
-- Added Missing resources
+#### v0.0.5
+- Fixed .md
 
 #### v0.0.4
 - Added gif
 
-#### v0.0.5
-- Fixed .md
+#### v0.0.3
+- Added Missing resources
+
+#### v0.0.2
+- Readme fixes
+
+#### V0.0.1
+- Initial
