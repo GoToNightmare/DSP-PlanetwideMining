@@ -48,21 +48,21 @@ namespace PlanetwideMining
 		private static readonly List<EVeinType> ResourceTypes = new List<EVeinType>()
 		{
 			// EVeinType.None,
-			EVeinType.Iron, // check
-			EVeinType.Copper, // check
-			EVeinType.Silicium, // check
-			EVeinType.Titanium, // check
-			EVeinType.Stone, // check
-			EVeinType.Coal, // check
-			// EVeinType.Oil, //
-			EVeinType.Fireice, // check
-			EVeinType.Diamond, // check
-			EVeinType.Fractal, // check
-			EVeinType.Crysrub, // organic?
-			EVeinType.Grat,
-			EVeinType.Bamboo, // spimiform
-			EVeinType.Mag, // unipolar
-			// EVeinType.Max, // ????????????????
+			EVeinType.Iron, // Iron Ore
+			EVeinType.Copper, // Copper Ore
+			EVeinType.Silicium, // Silicon Ore
+			EVeinType.Titanium, // Titanium Ore
+			EVeinType.Stone, // Stone
+			EVeinType.Coal, // Coal
+			// EVeinType.Oil, 
+			EVeinType.Fireice, // Fire Ice
+			EVeinType.Diamond, // Kimberlite Ore
+			EVeinType.Fractal, // Fractal Silicon
+			EVeinType.Crysrub, // ???
+			EVeinType.Grat, // Optical Grating Crystal
+			EVeinType.Bamboo, // Spiniform Stalagmite Crystal
+			EVeinType.Mag, // Unipolar Magnet
+			// EVeinType.Max, 
 		};
 	}
 

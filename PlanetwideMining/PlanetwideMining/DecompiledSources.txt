@@ -1,7 +1,7 @@
 // Decompiled with JetBrains decompiler
 // Type: BuildTool_Click
 // Assembly: Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: C251CED1-4355-44C3-8FF2-00F1653042D5
+// MVID: 310259D5-C821-4A1E-93C9-0A28E5E6F705
 // Assembly location: E:\Games\Steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\Assembly-CSharp.dll
 
 using NGPT;
@@ -766,7 +766,7 @@ label_71:
                         if (eveinType == EVeinType.None)
                           eveinType = veinPool[BuildTool._tmp_ids[index2]].type;
                         else
-                          buildPreview1.condition = EBuildCondition.NeedResource;
+                          buildPreview1.condition = EBuildCondition.NeedSingleResource;
                       }
                       prebuildData.parameters[num2++] = BuildTool._tmp_ids[index2];
                     }
