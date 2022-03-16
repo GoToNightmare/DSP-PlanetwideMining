@@ -643,7 +643,7 @@ namespace PlanetwideMining
 										Vector3 direction = -normalized;
 										if (flag3)
 										{
-											Vector3 vector3_11 = __instance.cursorTarget.normalized * __instance.planet.realRadius * 0.025f;
+											Vector3 vector3_11 = __instance.cursorTarget.normalized * Mathf.Min(__instance.planet.realRadius * 0.025f, 20f);
 											origin -= vector3_11;
 										}
 
