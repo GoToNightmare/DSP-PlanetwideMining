@@ -9,8 +9,8 @@ namespace PlanetwideMining
         private static bool CheckBuildConditions(
             BuildTool_Click __instance, // required
             ref bool __result, // required
-            ref int[] ____tmp_ids, // BuildTool._tmp_ids
-            ref Collider[] ____tmp_cols, // BuildTool._tmp_cols
+            ref int[] ____tmp_ids, // ____tmp_ids
+            ref Collider[] ____tmp_cols, // ____tmp_cols
             ref int ___tmpInhandId,
             ref int ___tmpInhandCount,
             ref StorageComponent ___tmpPackage,
@@ -18,7 +18,6 @@ namespace PlanetwideMining
             ref int[] ____overlappedIds
         )
         {
-            // Debug.LogError("[CheckBuildConditions]");
             if (__instance.buildPreviews.Count == 0)
                 return false;
             GameHistoryData history = __instance.actionBuild.history;
@@ -52,7 +51,7 @@ namespace PlanetwideMining
                     Vector3 up1 = pose1.up;
                     Vector3 vector3_3 = Vector3.Lerp(vector3_2, lpos2, 0.5f);
                     Vector3 forward3 = lpos2 - vector3_2;
-                    if ((double)forward3.sqrMagnitude < 9.99999974737875E-05)
+                    if ((double)forward3.sqrMagnitude < 9.999999747378752E-05)
                         forward3 = Maths.SphericalRotation(vector3_2, 0.0f).Forward();
                     Quaternion quaternion2 = Quaternion.LookRotation(forward3, vector3_3.normalized);
                     bool flag3 = __instance.planet != null && __instance.planet.type == EPlanetType.Gas;
@@ -67,30 +66,86 @@ namespace PlanetwideMining
                         if (buildPreview1.desc.veinMiner)
                         {
                             Array.Clear((Array)____tmp_ids, 0, ____tmp_ids.Length);
-
-                            PrebuildData prebuildData = default(PrebuildData);
-                            VeinData[] veinPool = __instance.factory.veinPool;
-                            prebuildData.InitParametersArray(veinPool.Length);
-
-                            // `start
-                            // Debug.LogError($"[000] veinPool.Length {veinPool.Length}");
-                            if (prebuildData.parameters != null)
+                            PrebuildData prebuildData = new PrebuildData();
+                            int num2 = 0;
+                            if (buildPreview1.desc.isVeinCollector)
                             {
-                                EVeinType targetVeinType = PlanetwideMining.ResourceForGlobalMining;
-                                List<int> newPrebuildDataParameters = new List<int>();
-                                for (int iaa = 0; iaa < veinPool.Length; iaa++)
+                                Vector3 center = vector3_2.normalized * __instance.controller.cmd.test.magnitude + forward1 * -10.5f;
+                                Vector3 rhs = -forward1;
+                                Vector3 right = pose1.right;
+                                int veinsInAreaNonAlloc = __instance.actionBuild.nearcdLogic.GetVeinsInAreaNonAlloc(center, 12f, ____tmp_ids);
+                                prebuildData.InitParametersArray(veinsInAreaNonAlloc);
+                                VeinData[] veinPool = __instance.factory.veinPool;
+                                EVeinType eveinType = EVeinType.None;
+                                for (int index2 = 0; index2 < veinsInAreaNonAlloc; ++index2)
                                 {
-                                    if (veinPool[iaa].type != targetVeinType) continue;
-                                    newPrebuildDataParameters.Add(veinPool[iaa].id);
+                                    if (____tmp_ids[index2] != 0 && veinPool[____tmp_ids[index2]].id == ____tmp_ids[index2])
+                                    {
+                                        if (veinPool[____tmp_ids[index2]].type != EVeinType.Oil)
+                                        {
+                                            Vector3 lhs = veinPool[____tmp_ids[index2]].pos - center;
+                                            double sqrMagnitude = (double)lhs.sqrMagnitude;
+                                            float num3 = Mathf.Abs(Vector3.Dot(lhs, rhs));
+                                            float num4 = Mathf.Abs(Vector3.Dot(lhs, right));
+                                            if (sqrMagnitude <= 100.0 && (double)num3 <= 7.0 && (double)num4 <= 5.5)
+                                            {
+                                                if (eveinType != veinPool[____tmp_ids[index2]].type)
+                                                {
+                                                    if (eveinType == EVeinType.None)
+                                                        eveinType = veinPool[____tmp_ids[index2]].type;
+                                                    else
+                                                        buildPreview1.condition = EBuildCondition.NeedSingleResource;
+                                                }
+
+                                                prebuildData.parameters[num2++] = ____tmp_ids[index2];
+                                            }
+                                        }
+                                    }
+                                    else
+                                        Assert.CannotBeReached();
                                 }
-
-                                prebuildData.parameters = newPrebuildDataParameters.ToArray();
                             }
-                            // `end
+                            else
+                            {
+                                Vector3 center = vector3_2.normalized * __instance.controller.cmd.test.magnitude + forward1 * -1.2f;
+                                Vector3 rhs1 = -forward1;
+                                Vector3 lhs = up1;
+                                int veinsInAreaNonAlloc = __instance.actionBuild.nearcdLogic.GetVeinsInAreaNonAlloc(center, 12f, ____tmp_ids);
+                                prebuildData.InitParametersArray(veinsInAreaNonAlloc);
+                                VeinData[] veinPool = __instance.factory.veinPool;
+                                EVeinType eveinType = EVeinType.None;
+                                for (int index3 = 0; index3 < veinsInAreaNonAlloc; ++index3)
+                                {
+                                    if (____tmp_ids[index3] != 0 && veinPool[____tmp_ids[index3]].id == ____tmp_ids[index3])
+                                    {
+                                        if (veinPool[____tmp_ids[index3]].type != EVeinType.Oil)
+                                        {
+                                            Vector3 rhs2 = veinPool[____tmp_ids[index3]].pos - center;
+                                            float f = Vector3.Dot(lhs, rhs2);
+                                            Vector3 vector3_5 = rhs2 - lhs * f;
+                                            double sqrMagnitude = (double)vector3_5.sqrMagnitude;
+                                            float num5 = Vector3.Dot(vector3_5.normalized, rhs1);
+                                            if (sqrMagnitude <= 961.0 / 16.0 && (double)num5 >= 0.7300000190734863 && (double)Mathf.Abs(f) <= 2.0)
+                                            {
+                                                if (eveinType != veinPool[____tmp_ids[index3]].type)
+                                                {
+                                                    if (eveinType == EVeinType.None)
+                                                        eveinType = veinPool[____tmp_ids[index3]].type;
+                                                    else
+                                                        buildPreview1.condition = EBuildCondition.NeedResource;
+                                                }
 
-                            prebuildData.paramCount = prebuildData.parameters.Length;
+                                                prebuildData.parameters[num2++] = ____tmp_ids[index3];
+                                            }
+                                        }
+                                    }
+                                    else
+                                        Assert.CannotBeReached();
+                                }
+                            }
+
+                            prebuildData.paramCount = num2;
                             prebuildData.ArrageParametersArray();
-
                             if (buildPreview1.desc.isVeinCollector)
                             {
                                 if (buildPreview1.paramCount == 0)
@@ -112,7 +167,7 @@ namespace PlanetwideMining
                                 buildPreview1.paramCount = prebuildData.paramCount;
                             }
 
-
+                            Array.Clear((Array)____tmp_ids, 0, ____tmp_ids.Length);
                             if (prebuildData.paramCount == 0)
                             {
                                 buildPreview1.condition = EBuildCondition.NeedResource;
@@ -212,7 +267,7 @@ namespace PlanetwideMining
                         {
                             if (__instance.planet != null)
                             {
-                                float num13 = (float)((double)history.buildMaxHeight + 0.5 + (double)__instance.planet.realRadius * (flag3 ? 1.02499997615814 : 1.0));
+                                float num13 = (float)((double)history.buildMaxHeight + 0.5 + (double)__instance.planet.realRadius * (flag3 ? 1.024999976158142 : 1.0));
                                 if ((double)vector3_2.sqrMagnitude > (double)num13 * (double)num13)
                                 {
                                     buildPreview1.condition = EBuildCondition.OutOfReach;
@@ -251,7 +306,7 @@ namespace PlanetwideMining
                                             buildCollider.ext.z += 0.35f;
                                         }
 
-                                        if ((double)buildCollider.ext.z < 0.100000001490116)
+                                        if ((double)buildCollider.ext.z < 0.10000000149011612)
                                             buildCollider.ext.z = 0.1f;
                                         buildCollider.pos = vector3_3 + quaternion2 * buildCollider.pos;
                                         buildCollider.q = quaternion2 * buildCollider.q;
@@ -292,8 +347,18 @@ namespace PlanetwideMining
                                                 if ((UnityEngine.Object)component != (UnityEngine.Object)null && component.index == buildPreview1.previewIndex || buildPreview1.desc.isInserter && !component.buildPreview.desc.isInserter || !buildPreview1.desc.isInserter && component.buildPreview.desc.isInserter)
                                                     continue;
                                             }
-                                            else if (buildPreview1.desc.isInserter && objId != 0 && (objId == buildPreview1.inputObjId || objId == buildPreview1.outputObjId || objId == buildPreview2.coverObjId))
-                                                continue;
+                                            else if (buildPreview1.desc.isInserter)
+                                            {
+                                                if (objId != 0 && (objId == buildPreview1.inputObjId || objId == buildPreview1.outputObjId || objId == buildPreview2.coverObjId))
+                                                    continue;
+                                            }
+                                            else if (buildPreview1.desc.isStorage && objId != 0 && __instance.GetItemProto(objId).prefabDesc.addonType == EAddonType.Storage)
+                                            {
+                                                int otherObjId;
+                                                __instance.factory.ReadObjectConn(objId, 0, out bool _, out otherObjId, out int _);
+                                                if (otherObjId != 0 && (otherObjId < 0 ? (int)__instance.factory.prebuildPool[-otherObjId].protoId : (int)__instance.factory.entityPool[otherObjId].protoId) == buildPreview1.item.ID)
+                                                    continue;
+                                            }
 
                                             flag5 = true;
                                             if (flag4 && objId != 0)
@@ -481,7 +546,7 @@ namespace PlanetwideMining
                                         }
 
                                         float y = __instance.cursorTarget.y;
-                                        if ((double)y > 0.100000001490116 || (double)y < -0.100000001490116)
+                                        if ((double)y > 0.10000000149011612 || (double)y < -0.10000000149011612)
                                         {
                                             buildPreview1.condition = EBuildCondition.BuildInEquator;
                                             continue;
@@ -538,7 +603,7 @@ namespace PlanetwideMining
                                     }
                                 }
 
-                                if (!buildPreview1.desc.isInserter && (double)vector3_2.magnitude - (double)__instance.planet.realRadius + (double)buildPreview1.desc.cullingHeight > 4.90000009536743 && !buildPreview1.desc.isEjector)
+                                if (!buildPreview1.desc.isInserter && (double)vector3_2.magnitude - (double)__instance.planet.realRadius + (double)buildPreview1.desc.cullingHeight > 4.900000095367432 && !buildPreview1.desc.isEjector)
                                 {
                                     EjectorComponent[] ejectorPool = __instance.factory.factorySystem.ejectorPool;
                                     int ejectorCursor = __instance.factory.factorySystem.ejectorCursor;
@@ -589,7 +654,7 @@ namespace PlanetwideMining
                                         PrefabDesc prefabDesc = __instance.GetPrefabDesc(____overlappedIds[index15]);
                                         Pose objectPose = __instance.GetObjectPose(____overlappedIds[index15]);
                                         Vector3 position = objectPose.position;
-                                        if ((double)position.magnitude - (double)__instance.planet.realRadius + (double)prefabDesc.cullingHeight > 4.90000009536743)
+                                        if ((double)position.magnitude - (double)__instance.planet.realRadius + (double)prefabDesc.cullingHeight > 4.900000095367432)
                                         {
                                             float num43 = vector3_2.x - position.x;
                                             float num44 = vector3_2.y - position.y;
@@ -620,7 +685,7 @@ namespace PlanetwideMining
                                     Vector3 ext = buildPreview1.desc.buildCollider.ext;
                                     float num49 = Mathf.Sqrt((float)((double)ext.x * (double)ext.x + (double)ext.z * (double)ext.z));
                                     vector3_4 = vector3_2 - vector3_1;
-                                    if ((double)vector3_4.magnitude - (double)num49 < 3.70000004768372)
+                                    if ((double)vector3_4.magnitude - (double)num49 < 3.700000047683716)
                                     {
                                         buildPreview1.condition = EBuildCondition.Collide;
                                         continue;
@@ -632,11 +697,10 @@ namespace PlanetwideMining
                                     RaycastHit hitInfo;
                                     for (int index16 = 0; index16 < buildPreview1.desc.landPoints.Length; ++index16)
                                     {
-                                        Vector3 landPoint = buildPreview1.desc.landPoints[index16];
+                                        Vector3 landPoint = buildPreview1.desc.landPoints[index16] with
                                         {
-                                            landPoint.y = 0.0f;
-                                        }
-                                        ;
+                                            y = 0.0f
+                                        };
                                         Vector3 vector3_10 = vector3_2 + quaternion1 * landPoint;
                                         Vector3 normalized = vector3_10.normalized;
                                         Vector3 origin = vector3_10 + normalized * 3f;
@@ -651,14 +715,14 @@ namespace PlanetwideMining
                                         {
                                             float distance = hitInfo.distance;
                                             vector3_4 = hitInfo.point;
-                                            if ((double)vector3_4.magnitude - (double)__instance.factory.planet.realRadius < -0.300000011920929)
+                                            if ((double)vector3_4.magnitude - (double)__instance.factory.planet.realRadius < -0.30000001192092896)
                                             {
                                                 buildPreview1.condition = EBuildCondition.NeedGround;
                                             }
                                             else
                                             {
                                                 float num50 = !Physics.Raycast(new Ray(origin, direction), out hitInfo, 5f, 16, QueryTriggerInteraction.Collide) ? 1000f : hitInfo.distance;
-                                                if ((double)distance - (double)num50 > 0.270000010728836)
+                                                if ((double)distance - (double)num50 > 0.27000001072883606)
                                                     buildPreview1.condition = EBuildCondition.NeedGround;
                                             }
                                         }
@@ -684,11 +748,10 @@ namespace PlanetwideMining
                                         }
                                         else
                                         {
-                                            Vector3 waterPoint = buildPreview1.desc.waterPoints[index17];
+                                            Vector3 waterPoint = buildPreview1.desc.waterPoints[index17] with
                                             {
-                                                waterPoint.y = __instance.planet.waterHeight;
-                                            }
-                                            ;
+                                                y = __instance.planet.waterHeight
+                                            };
                                             Vector3 origin = vector3_2 + quaternion1 * waterPoint;
                                             Vector3 normalized = origin.normalized;
                                             origin += normalized * 3f;
@@ -697,7 +760,7 @@ namespace PlanetwideMining
                                             if (Physics.Raycast(new Ray(origin, direction), out hitInfo, 5f, 16, QueryTriggerInteraction.Collide))
                                             {
                                                 float distance = hitInfo.distance;
-                                                if ((double)num51 - (double)distance <= 0.270000010728836)
+                                                if ((double)num51 - (double)distance <= 0.27000001072883606)
                                                     buildPreview1.condition = !buildPreview1.desc.geothermal ? EBuildCondition.NeedWater : EBuildCondition.NeedGeothermalResource;
                                             }
                                             else
@@ -780,7 +843,8 @@ namespace PlanetwideMining
             if (flag9)
             {
                 __instance.actionBuild.model.cursorState = 0;
-                __instance.actionBuild.model.cursorText = "点击鼠标建造".Translate();
+                string str = __instance.dotCount > 1 ? "    (" + __instance.dotCount.ToString() + ")" : "";
+                __instance.actionBuild.model.cursorText = "点击鼠标建造".Translate() + str;
                 if (__instance.buildPreviews.Count == 1 && __instance.buildPreviews[0].desc.geothermal)
                 {
                     float geothermalStrenth = __instance.factory.powerSystem.CalculateGeothermalStrenth(__instance.buildPreviews[0].lpos, __instance.buildPreviews[0].lrot);
