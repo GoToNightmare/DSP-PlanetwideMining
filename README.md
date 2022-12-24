@@ -25,6 +25,9 @@ This mod lets you mine resources everywhere, planetwide.
 
 ### Updates
 
+#### v0.0.7
+- Updates for patch
+
 #### v0.0.6
 - Updates for patch
 
