@@ -63,89 +63,30 @@ namespace PlanetwideMining
                     {
                         bool flag4 = buildPreview1.desc.minerType == EMinerType.None && !buildPreview1.desc.isBelt && !buildPreview1.desc.isSplitter && (!buildPreview1.desc.isPowerNode || buildPreview1.desc.isPowerGen || buildPreview1.desc.isAccumulator || buildPreview1.desc.isPowerExchanger) && !buildPreview1.desc.isStation && !buildPreview1.desc.isSilo && !buildPreview1.desc.multiLevel && !buildPreview1.desc.isMonitor;
                         Vector3 vector3_4;
-                        if (buildPreview1.desc.veinMiner)
+                        if (buildPreview1.desc.veinMiner) // START =======================================================
                         {
                             Array.Clear((Array)____tmp_ids, 0, ____tmp_ids.Length);
-                            PrebuildData prebuildData = new PrebuildData();
-                            int num2 = 0;
-                            if (buildPreview1.desc.isVeinCollector)
-                            {
-                                Vector3 center = vector3_2.normalized * __instance.controller.cmd.test.magnitude + forward1 * -10.5f;
-                                Vector3 rhs = -forward1;
-                                Vector3 right = pose1.right;
-                                int veinsInAreaNonAlloc = __instance.actionBuild.nearcdLogic.GetVeinsInAreaNonAlloc(center, 12f, ____tmp_ids);
-                                prebuildData.InitParametersArray(veinsInAreaNonAlloc);
-                                VeinData[] veinPool = __instance.factory.veinPool;
-                                EVeinType eveinType = EVeinType.None;
-                                for (int index2 = 0; index2 < veinsInAreaNonAlloc; ++index2)
-                                {
-                                    if (____tmp_ids[index2] != 0 && veinPool[____tmp_ids[index2]].id == ____tmp_ids[index2])
-                                    {
-                                        if (veinPool[____tmp_ids[index2]].type != EVeinType.Oil)
-                                        {
-                                            Vector3 lhs = veinPool[____tmp_ids[index2]].pos - center;
-                                            double sqrMagnitude = (double)lhs.sqrMagnitude;
-                                            float num3 = Mathf.Abs(Vector3.Dot(lhs, rhs));
-                                            float num4 = Mathf.Abs(Vector3.Dot(lhs, right));
-                                            if (sqrMagnitude <= 100.0 && (double)num3 <= 7.0 && (double)num4 <= 5.5)
-                                            {
-                                                if (eveinType != veinPool[____tmp_ids[index2]].type)
-                                                {
-                                                    if (eveinType == EVeinType.None)
-                                                        eveinType = veinPool[____tmp_ids[index2]].type;
-                                                    else
-                                                        buildPreview1.condition = EBuildCondition.NeedSingleResource;
-                                                }
 
-                                                prebuildData.parameters[num2++] = ____tmp_ids[index2];
-                                            }
-                                        }
-                                    }
-                                    else
-                                        Assert.CannotBeReached();
-                                }
-                            }
-                            else
-                            {
-                                Vector3 center = vector3_2.normalized * __instance.controller.cmd.test.magnitude + forward1 * -1.2f;
-                                Vector3 rhs1 = -forward1;
-                                Vector3 lhs = up1;
-                                int veinsInAreaNonAlloc = __instance.actionBuild.nearcdLogic.GetVeinsInAreaNonAlloc(center, 12f, ____tmp_ids);
-                                prebuildData.InitParametersArray(veinsInAreaNonAlloc);
-                                VeinData[] veinPool = __instance.factory.veinPool;
-                                EVeinType eveinType = EVeinType.None;
-                                for (int index3 = 0; index3 < veinsInAreaNonAlloc; ++index3)
-                                {
-                                    if (____tmp_ids[index3] != 0 && veinPool[____tmp_ids[index3]].id == ____tmp_ids[index3])
-                                    {
-                                        if (veinPool[____tmp_ids[index3]].type != EVeinType.Oil)
-                                        {
-                                            Vector3 rhs2 = veinPool[____tmp_ids[index3]].pos - center;
-                                            float f = Vector3.Dot(lhs, rhs2);
-                                            Vector3 vector3_5 = rhs2 - lhs * f;
-                                            double sqrMagnitude = (double)vector3_5.sqrMagnitude;
-                                            float num5 = Vector3.Dot(vector3_5.normalized, rhs1);
-                                            if (sqrMagnitude <= 961.0 / 16.0 && (double)num5 >= 0.7300000190734863 && (double)Mathf.Abs(f) <= 2.0)
-                                            {
-                                                if (eveinType != veinPool[____tmp_ids[index3]].type)
-                                                {
-                                                    if (eveinType == EVeinType.None)
-                                                        eveinType = veinPool[____tmp_ids[index3]].type;
-                                                    else
-                                                        buildPreview1.condition = EBuildCondition.NeedResource;
-                                                }
+                            PrebuildData prebuildData = default(PrebuildData);
+                            VeinData[] veinPool = __instance.factory.veinPool;
+                            prebuildData.InitParametersArray(veinPool.Length);
 
-                                                prebuildData.parameters[num2++] = ____tmp_ids[index3];
-                                            }
-                                        }
-                                    }
-                                    else
-                                        Assert.CannotBeReached();
+                            if (prebuildData.parameters != null)
+                            {
+                                EVeinType targetVeinType = PlanetwideMining.ResourceForGlobalMining;
+                                List<int> newPrebuildDataParameters = new List<int>();
+                                for (int iaa = 0; iaa < veinPool.Length; iaa++)
+                                {
+                                    if (veinPool[iaa].type != targetVeinType) continue;
+                                    newPrebuildDataParameters.Add(veinPool[iaa].id);
                                 }
+
+                                prebuildData.parameters = newPrebuildDataParameters.ToArray();
                             }
 
-                            prebuildData.paramCount = num2;
+                            prebuildData.paramCount = prebuildData.parameters.Length;
                             prebuildData.ArrageParametersArray();
+
                             if (buildPreview1.desc.isVeinCollector)
                             {
                                 if (buildPreview1.paramCount == 0)
@@ -167,14 +108,13 @@ namespace PlanetwideMining
                                 buildPreview1.paramCount = prebuildData.paramCount;
                             }
 
-                            Array.Clear((Array)____tmp_ids, 0, ____tmp_ids.Length);
                             if (prebuildData.paramCount == 0)
                             {
                                 buildPreview1.condition = EBuildCondition.NeedResource;
                                 continue;
                             }
                         }
-                        else if (buildPreview1.desc.oilMiner)
+                        else if (buildPreview1.desc.oilMiner) // END =======================================================
                         {
                             Array.Clear((Array)____tmp_ids, 0, ____tmp_ids.Length);
                             Vector3 center = vector3_2;
