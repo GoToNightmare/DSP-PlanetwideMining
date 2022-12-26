@@ -1,4 +1,4 @@
-## Dyson Sphere Program: PlanetwideMining   
+## Dyson Sphere Program: PlanetwideMining (BepInEx 5.4.21)
 This mod lets you mine resources everywhere, planetwide.
 
  <img src="https://i.giphy.com/media/6XuYopT3fCyhEJ4v1F/giphy.webp" width="640" height="360" />
@@ -24,6 +24,9 @@ This mod lets you mine resources everywhere, planetwide.
 - If you have any mod ideas, you can make suggestions [here](https://github.com/GoToNightmare/DSP-PlanetwideMining/issues)
 
 ### Updates
+
+#### v0.0.8
+- Fixes BepInEx 6.0.0-pre.1 NOT SUPPORTED, USE OLD ONE => BepInEx 5.4.21
 
 #### v0.0.7
 - Updates for patch
