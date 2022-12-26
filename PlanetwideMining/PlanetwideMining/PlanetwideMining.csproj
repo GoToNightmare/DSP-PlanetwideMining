@@ -44,17 +44,17 @@
       <Reference Include="Assembly-CSharp">
         <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\Assembly-CSharp.dll</HintPath>
       </Reference>
-      <Reference Include="BepInEx.Core">
-        <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\BepInEx.Core.dll</HintPath>
+      <Reference Include="BepInEx">
+        <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\BepInEx.dll</HintPath>
       </Reference>
-      <Reference Include="BepInEx.Preloader.Core">
-        <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\BepInEx.Preloader.Core.dll</HintPath>
+      <Reference Include="BepInEx.Harmony">
+        <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\BepInEx.Harmony.dll</HintPath>
       </Reference>
-      <Reference Include="BepInEx.Preloader.Unity">
-        <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\BepInEx.Preloader.Unity.dll</HintPath>
+      <Reference Include="BepInEx.Preloader">
+        <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\BepInEx.Preloader.dll</HintPath>
       </Reference>
-      <Reference Include="BepInEx.Unity">
-        <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\BepInEx.Unity.dll</HintPath>
+      <Reference Include="HarmonyXInterop">
+        <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\HarmonyXInterop.dll</HintPath>
       </Reference>
       <Reference Include="Mono.Cecil">
         <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\Mono.Cecil.dll</HintPath>
@@ -82,9 +82,6 @@
       </Reference>
       <Reference Include="netstandard">
         <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\netstandard.dll</HintPath>
-      </Reference>
-      <Reference Include="SemanticVersioning">
-        <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\core\SemanticVersioning.dll</HintPath>
       </Reference>
       <Reference Include="System">
         <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\System.dll</HintPath>

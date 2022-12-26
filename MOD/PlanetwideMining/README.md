@@ -25,6 +25,9 @@ This mod lets you mine resources everywhere, planetwide.
 
 ### Updates
 
+#### v0.0.8
+- Fixes BepInEx 6.0.0-pre.1 NOT SUPPORTED, USE OLD ONE => BepInEx 5.4.21
+
 #### v0.0.7
 - Updates for patch
 
