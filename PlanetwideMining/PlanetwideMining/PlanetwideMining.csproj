@@ -33,9 +33,11 @@
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
     <ItemGroup>
+        <Content Include="DecompiledData.txt" />
         <Compile Include="PlanetwideMining.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="PlanetwideMining_Mod.cs" />
+        <Content Include="OtherData.txt" />
     </ItemGroup>
     <ItemGroup>
       <Reference Include="0Harmony">

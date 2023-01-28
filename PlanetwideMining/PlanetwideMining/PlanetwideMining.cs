@@ -1,8 +1,16 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using BepInEx;
 using HarmonyLib;
+using JetBrains.Annotations;
 using UnityEngine;
+
+
+// [assembly: InternalsVisibleTo("PlanetwideMining")]
+// [assembly: IgnoresAccessChecksTo("BuildTool")]
 
 namespace PlanetwideMining
 {
@@ -22,6 +30,17 @@ namespace PlanetwideMining
 
             var harmony = new Harmony("PlanetwideMining");
             harmony.PatchAll();
+
+            MakeReferences();
+        }
+
+        private void MakeReferences()
+        {
+            // BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Static;
+            //
+            // string filedName = "_tmp_ids";
+            // FieldInfo finfo = typeof(BuildTool).GetField(filedName, bindingFlags);
+            // var result = finfo.GetValue(null) as int[];
         }
 
 
@@ -97,6 +116,7 @@ namespace PlanetwideMining
     [HarmonyPatch("CheckBuildConditions")]
     public static partial class PatchMiners
     {
+        [UsedImplicitly]
         public static bool Prefix(
             BuildTool_Click __instance, // required
             ref bool __result, // required
@@ -125,3 +145,18 @@ namespace PlanetwideMining
         }
     }
 }
+
+
+// namespace System.Runtime.CompilerServices
+// {
+//     [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
+//     public class IgnoresAccessChecksToAttribute : Attribute
+//     {
+//         public IgnoresAccessChecksToAttribute(string assemblyName)
+//         {
+//             AssemblyName = assemblyName;
+//         }
+//
+//         public string AssemblyName { get; }
+//     }
+// }

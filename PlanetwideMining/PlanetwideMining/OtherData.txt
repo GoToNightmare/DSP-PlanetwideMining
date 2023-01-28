@@ -1,0 +1,52 @@
+﻿                        if (buildPreview1.desc.veinMiner) // START =======================================================
+                        {
+                            Array.Clear((Array)____tmp_ids, 0, ____tmp_ids.Length);
+
+                            PrebuildData prebuildData = default(PrebuildData);
+                            VeinData[] veinPool = __instance.factory.veinPool;
+                            prebuildData.InitParametersArray(veinPool.Length);
+
+                            if (prebuildData.parameters != null)
+                            {
+                                EVeinType targetVeinType = PlanetwideMining.ResourceForGlobalMining;
+                                List<int> newPrebuildDataParameters = new List<int>();
+                                for (int iaa = 0; iaa < veinPool.Length; iaa++)
+                                {
+                                    if (veinPool[iaa].type != targetVeinType) continue;
+                                    newPrebuildDataParameters.Add(veinPool[iaa].id);
+                                }
+
+                                prebuildData.parameters = newPrebuildDataParameters.ToArray();
+                            }
+
+                            prebuildData.paramCount = prebuildData.parameters.Length;
+                            prebuildData.ArrageParametersArray();
+
+                            if (buildPreview1.desc.isVeinCollector)
+                            {
+                                if (buildPreview1.paramCount == 0)
+                                {
+                                    buildPreview1.parameters = new int[2048];
+                                    buildPreview1.paramCount = 2048;
+                                }
+
+                                if (prebuildData.paramCount > 0)
+                                {
+                                    Array.Resize<int>(ref buildPreview1.parameters, buildPreview1.paramCount + prebuildData.paramCount);
+                                    Array.Copy((Array)prebuildData.parameters, 0, (Array)buildPreview1.parameters, buildPreview1.paramCount, prebuildData.paramCount);
+                                    buildPreview1.paramCount += prebuildData.paramCount;
+                                }
+                            }
+                            else
+                            {
+                                buildPreview1.parameters = prebuildData.parameters;
+                                buildPreview1.paramCount = prebuildData.paramCount;
+                            }
+
+                            if (prebuildData.paramCount == 0)
+                            {
+                                buildPreview1.condition = EBuildCondition.NeedResource;
+                                continue;
+                            }
+                        }
+                        else if (buildPreview1.desc.oilMiner) // END =======================================================

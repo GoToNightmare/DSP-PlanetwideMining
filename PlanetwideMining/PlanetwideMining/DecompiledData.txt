@@ -1,0 +1,1801 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: BuildTool_Click
+// Assembly: Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+// MVID: C63CA23B-DAE9-4E44-85EC-DF93F54E107D
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\Assembly-CSharp.dll
+
+using NGPT;
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class BuildTool_Click : BuildTool
+{
+  public ItemProto handItem;
+  public PrefabDesc handPrefabDesc;
+  public int modelOffset;
+  public bool castTerrain;
+  public bool castPlatform;
+  public bool castGround;
+  public Vector3 castGroundPos = Vector3.zero;
+  public Vector3 castGroundPosSnapped = Vector3.zero;
+  public bool castObject;
+  public int castObjectId;
+  public Vector3 castObjectPos;
+  private bool isDragging;
+  public Vector3 startGroundPosSnapped = Vector3.zero;
+  public Vector3[] dotsSnapped;
+  public int dotCount;
+  public bool cursorValid;
+  public Vector3 cursorTarget;
+  public bool waitForConfirm;
+  public bool multiLevelCovering;
+  public float yaw;
+  public float gap;
+  public bool tabgapDir = true;
+  private Pose[] belt_slots = new Pose[4]
+  {
+    new Pose(new Vector3(0.0f, 0.0f, 0.0f), Quaternion.identity),
+    new Pose(new Vector3(0.0f, 0.0f, 0.0f), Quaternion.Euler(0.0f, 90f, 0.0f)),
+    new Pose(new Vector3(0.0f, 0.0f, 0.0f), Quaternion.Euler(0.0f, 180f, 0.0f)),
+    new Pose(new Vector3(0.0f, 0.0f, 0.0f), Quaternion.Euler(0.0f, -90f, 0.0f))
+  };
+
+  protected override void _OnInit()
+  {
+    this.dotsSnapped = new Vector3[15];
+    this.dotCount = 0;
+  }
+
+  protected override void _OnFree()
+  {
+    this.dotsSnapped = (Vector3[]) null;
+    this.dotCount = 0;
+  }
+
+  protected override void _OnOpen() => this.yaw = BuildingParameters.template.yaw;
+
+  protected override void _OnClose()
+  {
+    this.isDragging = false;
+    this.yaw = 0.0f;
+    this.gap = 0.0f;
+    this.tabgapDir = true;
+    this.modelOffset = 0;
+    this.dotCount = 0;
+  }
+
+  protected override void _OnTick(long time)
+  {
+    if (!this.UpdateHandItem())
+    {
+      this._Close();
+    }
+    else
+    {
+      this.UpdateRaycast();
+      this.DeterminePreviews();
+      this.UpdateCollidersForCursor();
+      this.UpdateCollidersForGiantBp();
+      this.UpdatePreviewModels(this.actionBuild.model);
+      bool condition = this.CheckBuildConditions();
+      this.UpdatePreviewModelConditions(this.actionBuild.model);
+      this.UpdateGizmos(this.actionBuild.model);
+      if (!this.ConfirmOperation(condition))
+        return;
+      this.CreatePrebuilds();
+    }
+  }
+
+  public override bool DetermineActive() => this.actionBuild.blueprintMode == EBlueprintMode.None && this.controller.cmd.mode == 1;
+
+  public bool UpdateHandItem()
+  {
+    this.handItem = LDB.items.Select(this.controller.cmd.refId);
+    if (this.handItem != null && this.handItem.IsEntity && this.handItem.CanBuild)
+    {
+      int modelIndex = this.handItem.ModelIndex;
+      int num = this.handItem.ModelCount;
+      if (num < 1)
+        num = 1;
+      ModelProto modelProto = LDB.models.Select(modelIndex + this.modelOffset % num);
+      this.handPrefabDesc = modelProto == null ? this.handItem.prefabDesc : modelProto.prefabDesc;
+      if (!this.handPrefabDesc.hasObject)
+        this.handPrefabDesc = (PrefabDesc) null;
+      if (this.actionBuild.templatePreviews.Count > 0)
+      {
+        BuildPreview templatePreview = this.actionBuild.templatePreviews[0];
+        if (this.handItem == templatePreview.item)
+        {
+          this.handPrefabDesc = templatePreview.desc;
+          this.modelOffset = templatePreview.desc.modelIndex - this.handItem.ModelIndex;
+        }
+      }
+      string str = this.handItem.Name + "建造提示";
+      if (LDB.strings[str] != null && this.handPrefabDesc != null)
+      {
+        if (this.handPrefabDesc.isStation)
+        {
+          if (this.factory.transport.stationCount < 2)
+            this.actionBuild.model.promptText = str.Translate();
+        }
+        else
+          this.actionBuild.model.promptText = str.Translate();
+      }
+    }
+    else
+      this.handPrefabDesc = (PrefabDesc) null;
+    return this.handPrefabDesc != null;
+  }
+
+  public void UpdateRaycast()
+  {
+    this.castTerrain = false;
+    this.castPlatform = false;
+    this.castGround = false;
+    this.castGroundPos = Vector3.zero;
+    this.castGroundPosSnapped = Vector3.zero;
+    this.castObject = false;
+    this.castObjectId = 0;
+    this.castObjectPos = Vector3.zero;
+    this.cursorValid = false;
+    this.cursorTarget = Vector3.zero;
+    this.multiLevelCovering = false;
+    if (!VFInput.onGUI && VFInput.inScreen)
+    {
+      int layerMask = 8720;
+      RaycastHit hitInfo;
+      this.castGround = Physics.Raycast(this.mouseRay, out hitInfo, 400f, layerMask, QueryTriggerInteraction.Collide);
+      if (!this.castGround)
+        this.castGround = Physics.Raycast(new Ray(this.mouseRay.GetPoint(200f), -this.mouseRay.direction), out hitInfo, 200f, layerMask, QueryTriggerInteraction.Collide);
+      if (this.castGround)
+      {
+        Layer layer = (Layer) hitInfo.collider.gameObject.layer;
+        this.castTerrain = layer == Layer.Terrain || layer == Layer.Water;
+        this.castPlatform = layer == Layer.Platform;
+        this.castGroundPos = this.controller.cmd.test = this.controller.cmd.target = hitInfo.point;
+        this.castGroundPosSnapped = !VFInput._ignoreGrid || this.handPrefabDesc.minerType != EMinerType.Vein && !this.handPrefabDesc.geothermal ? this.actionBuild.planetAux.Snap(this.castGroundPos, this.castTerrain) : this.castGroundPos.normalized * (this.planet.realRadius + 0.2f);
+        if (this.controller.cmd.stage == 1)
+          this.castGroundPosSnapped = this.castGroundPosSnapped.normalized * this.startGroundPosSnapped.magnitude;
+        this.controller.cmd.test = this.castGroundPosSnapped;
+        Vector3 normalized = this.castGroundPosSnapped.normalized;
+        if (Physics.Raycast(new Ray(this.castGroundPosSnapped + normalized * 10f, -normalized), out hitInfo, 20f, 8720, QueryTriggerInteraction.Collide))
+          this.controller.cmd.test = hitInfo.point;
+        this.cursorTarget = this.castGroundPosSnapped;
+        this.cursorValid = true;
+      }
+      if (!this.isDragging && this.handPrefabDesc.multiLevel)
+      {
+        int castAllCount = this.controller.cmd.raycast.castAllCount;
+        RaycastData[] castAll = this.controller.cmd.raycast.castAll;
+        int objId1 = 0;
+        for (int index = 0; index < castAllCount; ++index)
+        {
+          if (castAll[index].objType == EObjectType.Entity || castAll[index].objType == EObjectType.Prebuild)
+          {
+            objId1 = castAll[index].objType == EObjectType.Entity ? castAll[index].objId : -castAll[index].objId;
+            break;
+          }
+        }
+        if (objId1 != 0)
+        {
+          int objectProtoId = this.GetObjectProtoId(objId1);
+          bool flag = objectProtoId == this.handItem.ID;
+          if (!flag)
+          {
+            int[] levelAlternativeIds = this.handPrefabDesc.multiLevelAlternativeIds;
+            if (levelAlternativeIds != null && levelAlternativeIds.Length != 0)
+            {
+              for (int index = 0; index < levelAlternativeIds.Length; ++index)
+              {
+                if (levelAlternativeIds[index] == objectProtoId)
+                {
+                  flag = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (flag)
+          {
+            int num = 0;
+            int otherObjId;
+            do
+            {
+              this.factory.ReadObjectConn(objId1, 15, out bool _, out otherObjId, out int _);
+              if (otherObjId != 0)
+                objId1 = otherObjId;
+            }
+            while (otherObjId != 0 && num++ < 200);
+            if (otherObjId == 0)
+            {
+              this.castObject = true;
+              this.castObjectId = objId1;
+              this.castObjectPos = this.GetObjectPose(objId1).position;
+            }
+          }
+          ItemProto itemProto = this.GetItemProto(objId1);
+          if (itemProto != null && this.handItem.prefabDesc.isStorage && itemProto.prefabDesc.addonType == EAddonType.Storage)
+          {
+            int otherObjId;
+            this.factory.ReadObjectConn(objId1, 0, out bool _, out otherObjId, out int _);
+            if (otherObjId != 0)
+            {
+              this.castObject = true;
+              int objId2 = otherObjId;
+              this.castObjectId = objId2;
+              this.castObjectPos = this.GetObjectPose(objId2).position;
+            }
+          }
+        }
+      }
+      if (this.castObject)
+      {
+        this.cursorTarget = this.castObjectPos;
+        this.controller.cmd.test = this.castObjectPos;
+        this.cursorValid = true;
+        this.multiLevelCovering = true;
+      }
+    }
+    this.controller.cmd.state = this.cursorValid ? 1 : 0;
+    this.controller.cmd.target = this.cursorValid ? this.cursorTarget : Vector3.zero;
+  }
+
+  public void DeterminePreviews()
+  {
+    this.waitForConfirm = false;
+    if (this.cursorValid)
+    {
+      if (VFInput._switchModelStyle.onDown)
+      {
+        if (this.handItem.ModelCount > 1)
+        {
+          ++this.modelOffset;
+          BuildingParameters.template.SetEmpty();
+          this.actionBuild.NotifyTemplateChange();
+        }
+        else if (this.isDragging)
+        {
+          if (this.tabgapDir)
+          {
+            if ((double) this.gap < 0.30000001192092896)
+              this.gap = 0.3333333f;
+            else if ((double) this.gap < 0.4000000059604645)
+              this.gap = 0.5f;
+            else if ((double) this.gap < 0.6000000238418579)
+              this.gap = 1f;
+            else if ((double) this.gap < 3.5)
+              ++this.gap;
+            else
+              this.tabgapDir = false;
+          }
+          else if ((double) this.gap > 1.5)
+            --this.gap;
+          else if ((double) this.gap > 0.6000000238418579)
+            this.gap = 0.5f;
+          else if ((double) this.gap > 0.4000000059604645)
+            this.gap = 0.3333333f;
+          else if ((double) this.gap > 0.30000001192092896)
+            this.gap = 0.0f;
+          else
+            this.tabgapDir = true;
+        }
+      }
+      bool flag1 = !this.multiLevelCovering && this.handPrefabDesc.dragBuild;
+      if (this.handPrefabDesc.geothermal && VFInput._ignoreGrid)
+        flag1 = false;
+      if (VFInput._buildConfirm.onDown && this.controller.cmd.stage != 1)
+      {
+        this.controller.cmd.stage = 1;
+        this.startGroundPosSnapped = this.castGroundPosSnapped;
+        if (flag1)
+          this.isDragging = true;
+      }
+      if (this.controller.cmd.stage == 0)
+      {
+        this.startGroundPosSnapped = this.castGroundPosSnapped;
+        this.isDragging = false;
+      }
+      this.waitForConfirm = this.controller.cmd.stage == 1;
+      if (this.isDragging)
+      {
+        if (VFInput._cursorPlusKey.onDown)
+        {
+          if ((double) this.gap < 0.30000001192092896)
+            this.gap = 0.3333333f;
+          else if ((double) this.gap < 0.4000000059604645)
+            this.gap = 0.5f;
+          else if ((double) this.gap < 0.6000000238418579)
+            this.gap = 1f;
+          else if ((double) this.gap < 3.5)
+            ++this.gap;
+        }
+        if (VFInput._cursorMinusKey.onDown)
+        {
+          if ((double) this.gap > 1.5)
+            --this.gap;
+          else if ((double) this.gap > 0.6000000238418579)
+            this.gap = 0.5f;
+          else if ((double) this.gap > 0.4000000059604645)
+            this.gap = 0.3333333f;
+          else if ((double) this.gap > 0.30000001192092896)
+            this.gap = 0.0f;
+        }
+      }
+      if (VFInput._ignoreGrid && (this.handPrefabDesc.minerType == EMinerType.Vein || this.handPrefabDesc.geothermal))
+      {
+        if ((bool) VFInput._rotate)
+        {
+          this.yaw += 3f;
+          this.yaw = Mathf.Repeat(this.yaw, 360f);
+        }
+        if ((bool) VFInput._counterRotate)
+        {
+          this.yaw -= 3f;
+          this.yaw = Mathf.Repeat(this.yaw, 360f);
+        }
+      }
+      else
+      {
+        if (VFInput._rotate.onDown)
+        {
+          this.yaw += 90f;
+          this.yaw = Mathf.Repeat(this.yaw, 360f);
+          this.yaw = Mathf.Round(this.yaw / 90f) * 90f;
+        }
+        if (VFInput._counterRotate.onDown)
+        {
+          this.yaw -= 90f;
+          this.yaw = Mathf.Repeat(this.yaw, 360f);
+          this.yaw = Mathf.Round(this.yaw / 90f) * 90f;
+        }
+        if (this.handPrefabDesc.minerType != EMinerType.Vein)
+          this.yaw = Mathf.Round(this.yaw / 90f) * 90f;
+      }
+      Array.Clear((Array) this.dotsSnapped, 0, this.dotsSnapped.Length);
+      int num1 = 1;
+      if (this.isDragging)
+        num1 = this.planet.aux.SnapDotsNonAlloc(this.startGroundPosSnapped, this.castGroundPosSnapped, this.handPrefabDesc.dragBuildDist, this.yaw, this.gap, this.dotsSnapped);
+      else
+        this.dotsSnapped[0] = this.cursorTarget;
+      this.dotCount = num1;
+      int num2 = 1;
+      List<BuildPreview> templatePreviews = this.actionBuild.templatePreviews;
+      bool flag2 = templatePreviews.Count > 0;
+      if (flag2)
+        num2 = templatePreviews.Count;
+      int num3 = num1 * num2;
+      while (this.buildPreviews.Count < num3)
+        this.buildPreviews.Add(new BuildPreview());
+      while (this.buildPreviews.Count > num3)
+        this.buildPreviews.RemoveAt(this.buildPreviews.Count - 1);
+      for (int index1 = 0; index1 < num1; ++index1)
+      {
+        for (int index2 = 0; index2 < num2; ++index2)
+        {
+          BuildPreview buildPreview1 = this.buildPreviews[index1 * num2 + index2];
+          BuildPreview other = flag2 ? templatePreviews[index2] : (BuildPreview) null;
+          if (other == null)
+          {
+            buildPreview1.ResetAll();
+            buildPreview1.item = this.handItem;
+            buildPreview1.desc = this.handPrefabDesc;
+            buildPreview1.needModel = this.handPrefabDesc.lodCount > 0 && (UnityEngine.Object) this.handPrefabDesc.lodMeshes[0] != (UnityEngine.Object) null;
+          }
+          else
+            buildPreview1.Clone(other);
+          if (index2 == 0)
+          {
+            float magnitude = buildPreview1.desc.buildCollider.ext.magnitude;
+            buildPreview1.genNearColliderArea2 = (float) (((double) magnitude + 4.0) * ((double) magnitude + 4.0));
+          }
+          Vector3 vector3_1 = other == null ? Vector3.zero : other.lpos;
+          Quaternion quaternion1 = other == null ? Quaternion.identity : other.lrot;
+          Vector3 vector3_2 = other == null ? Vector3.zero : other.lpos2;
+          Quaternion quaternion2 = other == null ? Quaternion.identity : other.lrot2;
+          Vector3 pos;
+          Quaternion quaternion3;
+          if (this.multiLevelCovering)
+          {
+            if (index2 == 0)
+            {
+              buildPreview1.input = (BuildPreview) null;
+              buildPreview1.inputObjId = this.castObjectId;
+              buildPreview1.inputFromSlot = 15;
+              buildPreview1.inputToSlot = 14;
+              buildPreview1.inputOffset = 0;
+              if (this.castObjectId != 0)
+              {
+                ItemProto itemProto = this.GetItemProto(this.castObjectId);
+                if (itemProto.ID != buildPreview1.item.ID)
+                {
+                  if (buildPreview1.desc.multiLevelAlternativeIds == null || buildPreview1.desc.multiLevelAlternativeIds.Length == 0)
+                  {
+                    buildPreview1.condition = EBuildCondition.Failure;
+                  }
+                  else
+                  {
+                    bool flag3 = false;
+                    foreach (int levelAlternativeId in buildPreview1.desc.multiLevelAlternativeIds)
+                    {
+                      if (levelAlternativeId == itemProto.ID)
+                      {
+                        flag3 = true;
+                        break;
+                      }
+                    }
+                    if (!flag3)
+                      buildPreview1.condition = EBuildCondition.Failure;
+                  }
+                }
+              }
+            }
+            Pose objectPose = this.GetObjectPose(this.castObjectId);
+            pos = objectPose.position + objectPose.rotation * this.handPrefabDesc.lapJoint;
+            quaternion3 = this.handPrefabDesc.multiLevelAllowRotate ? Maths.SphericalRotation(pos, this.yaw) : objectPose.rotation;
+          }
+          else
+          {
+            pos = this.dotsSnapped[index1];
+            if (this.planet != null && this.planet.type == EPlanetType.Gas)
+            {
+              Vector3 vector3_3 = pos.normalized * this.planet.realRadius * 0.025f;
+              pos += vector3_3;
+            }
+            quaternion3 = Maths.SphericalRotation(pos, this.yaw);
+          }
+          buildPreview1.lpos = pos + quaternion3 * vector3_1;
+          buildPreview1.lrot = quaternion3 * quaternion1;
+          buildPreview1.lpos2 = pos + quaternion3 * vector3_2;
+          buildPreview1.lrot2 = quaternion3 * quaternion2;
+          if (buildPreview1.desc.isInserter)
+          {
+            int index3 = buildPreview1.output != null ? buildPreview1.outputToSlot : (buildPreview1.input != null ? buildPreview1.inputFromSlot : -1);
+            if (index3 >= 0)
+            {
+              BuildPreview buildPreview2 = this.buildPreviews[index1 * num2];
+              Vector3 dir = buildPreview1.lpos2 - buildPreview1.lpos;
+              float magnitude = dir.magnitude;
+              dir.Normalize();
+              float num4 = this.actionBuild.planetAux.activeGrid.CalcLocalGridSize(buildPreview2.lpos, dir);
+              Pose slotPose = buildPreview2.desc.slotPoses[index3];
+              Vector3 forward = slotPose.forward;
+              float num5 = (double) Mathf.Abs(forward.x) > (double) Mathf.Abs(forward.z) ? Mathf.Abs(slotPose.position.x) : Mathf.Abs(slotPose.position.z);
+              float num6 = Mathf.Round((num5 + num4 * (magnitude + 0.0001f)) / num4) * num4 - num5;
+              if (buildPreview1.output != null)
+                buildPreview1.lpos = -dir * num6 + buildPreview1.lpos2;
+              else
+                buildPreview1.lpos2 = dir * num6 + buildPreview1.lpos;
+            }
+          }
+        }
+        for (int index4 = 0; index4 < num2; ++index4)
+        {
+          BuildPreview buildPreview = this.buildPreviews[index1 * num2 + index4];
+          for (int index5 = 0; index5 < templatePreviews.Count; ++index5)
+          {
+            if (buildPreview.output == templatePreviews[index5])
+              buildPreview.output = this.buildPreviews[index1 * num2 + index5];
+            if (buildPreview.input == templatePreviews[index5])
+              buildPreview.input = this.buildPreviews[index1 * num2 + index5];
+          }
+        }
+        for (int index6 = 0; index6 < num2; ++index6)
+        {
+          BuildPreview buildPreview = this.buildPreviews[index1 * num2 + index6];
+          if (buildPreview.desc.isInserter)
+            this.MatchInserter(buildPreview);
+        }
+      }
+    }
+    else
+      this.buildPreviews.Clear();
+  }
+
+  private void UpdateCollidersForGiantBp()
+  {
+    if (!this.handItem.prefabDesc.isVeinCollector || this.planet == null || this.factory == null || this.planet.physics == null)
+      return;
+    this.planet.physics.nearColliderLogic.ActiveCollidersInArea(this.controller.cmd.target, 30f);
+  }
+
+  private void MatchInserter(BuildPreview bp)
+  {
+    CargoTraffic cargoTraffic = this.factory.cargoTraffic;
+    EntityData[] entityPool = this.factory.entityPool;
+    BeltComponent[] beltPool = cargoTraffic.beltPool;
+    bool flag1 = bp.output == null && bp.outputObjId == 0;
+    bool flag2 = bp.input == null && bp.inputObjId == 0;
+    if (flag1 | flag2)
+    {
+      Vector3 vector3_1;
+      Quaternion quaternion1;
+      int num1;
+      BuildPreview buildPreview1;
+      int num2;
+      int num3;
+      do
+      {
+        Vector3 position = flag1 ? bp.lpos2 : bp.lpos;
+        Vector3 vector3_2 = flag1 ? bp.lpos : bp.lpos2;
+        Vector3 lhs1 = flag1 ? (bp.lpos2 - bp.lpos).normalized : (bp.lpos - bp.lpos2).normalized;
+        Quaternion quaternion2 = flag1 ? bp.lrot2 : bp.lrot;
+        Vector3 rhs1 = (flag1 ? bp.lrot : bp.lrot2).Forward();
+        vector3_1 = position;
+        quaternion1 = quaternion2;
+        num1 = 0;
+        buildPreview1 = (BuildPreview) null;
+        num2 = 0;
+        num3 = 0;
+        bool flag3 = false;
+        float num4 = 99f;
+        int objId1 = 0;
+        BuildPreview buildPreview2 = (BuildPreview) null;
+        int index1 = 0;
+        bool flag4 = false;
+        int layerMask = 425984;
+        int num5 = Physics.OverlapSphereNonAlloc(position, 0.8f, BuildTool._tmp_cols, layerMask, QueryTriggerInteraction.Collide);
+        if (num5 > 0)
+        {
+          for (int index2 = 0; index2 < num5; ++index2)
+          {
+            float num6 = 100f;
+            int objId2 = 0;
+            int num7 = 0;
+            bool flag5 = false;
+            BuildPreview buildPreview3 = (BuildPreview) null;
+            ColliderData cd;
+            if (this.planet.physics.GetColliderData(BuildTool._tmp_cols[index2], out cd))
+            {
+              if (cd.objType == EObjectType.Entity || cd.objType == EObjectType.Prebuild)
+              {
+                num7 = 0;
+                objId2 = cd.objType == EObjectType.Entity ? cd.objId : -cd.objId;
+                flag5 = this.ObjectIsBelt(objId2);
+                if (flag5)
+                {
+                  Pose objectPose = this.GetObjectPose(objId2);
+                  Pose[] beltSlots = this.belt_slots;
+                  for (int index3 = 0; index3 < beltSlots.Length; ++index3)
+                  {
+                    Vector3 vector3_3 = objectPose.position + objectPose.rotation * beltSlots[index3].position;
+                    Vector3 rhs2 = objectPose.rotation * beltSlots[index3].rotation * new Vector3(0.0f, 0.0f, -1f);
+                    double num8 = (double) Vector3.Dot(lhs1, rhs2);
+                    float num9 = Vector3.Dot((vector3_3 - vector3_2).normalized, rhs2);
+                    if (num8 > 0.8999999761581421 && (double) num9 > 0.800000011920929)
+                    {
+                      num6 = (objectPose.position - position).sqrMagnitude;
+                      num7 = index3;
+                      break;
+                    }
+                  }
+                }
+                else
+                {
+                  Pose objectPose = this.GetObjectPose(objId2);
+                  Pose[] localSlots = this.GetLocalSlots(objId2);
+                  for (int index4 = 0; index4 < localSlots.Length; ++index4)
+                  {
+                    Vector3 vector3_4 = objectPose.position + objectPose.rotation * localSlots[index4].position;
+                    Vector3 rhs3 = objectPose.rotation * localSlots[index4].rotation * new Vector3(0.0f, 0.0f, -1f);
+                    double num10 = (double) Vector3.Dot(lhs1, rhs3);
+                    float num11 = Vector3.Dot((vector3_4 - vector3_2).normalized, rhs3);
+                    if (num10 > 0.9702957272529602 && (double) num11 > 0.9702957272529602)
+                    {
+                      float sqrMagnitude = (vector3_4 - position).sqrMagnitude;
+                      if ((double) sqrMagnitude < (double) num6)
+                      {
+                        num6 = sqrMagnitude;
+                        num7 = index4;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            else if (BuildTool._tmp_cols[index2].gameObject.layer == 18)
+            {
+              BuildPreviewModel component = BuildTool._tmp_cols[index2].gameObject.GetComponent<BuildPreviewModel>();
+              if ((UnityEngine.Object) component != (UnityEngine.Object) null)
+              {
+                Pose[] slotPoses = component.buildPreview.desc.slotPoses;
+                if (slotPoses != null && slotPoses.Length != 0)
+                {
+                  Pose pose = new Pose(component.trans.localPosition, component.trans.localRotation);
+                  for (int index5 = 0; index5 < slotPoses.Length; ++index5)
+                  {
+                    Vector3 vector3_5 = pose.position + pose.rotation * slotPoses[index5].position;
+                    Vector3 rhs4 = pose.rotation * slotPoses[index5].rotation * new Vector3(0.0f, 0.0f, -1f);
+                    double num12 = (double) Vector3.Dot(lhs1, rhs4);
+                    float num13 = Vector3.Dot((vector3_5 - vector3_2).normalized, rhs4);
+                    if (num12 > 0.9702957272529602 && (double) num13 > 0.9702957272529602)
+                    {
+                      float sqrMagnitude = (vector3_5 - position).sqrMagnitude;
+                      if ((double) sqrMagnitude < (double) num6)
+                      {
+                        num6 = sqrMagnitude;
+                        num7 = index5;
+                        buildPreview3 = component.buildPreview;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            if ((double) num6 < (double) num4)
+            {
+              num4 = num6;
+              objId1 = objId2;
+              buildPreview2 = buildPreview3;
+              index1 = num7;
+              flag4 = flag5;
+            }
+          }
+        }
+        if ((double) num4 < 6.0 && (objId1 != 0 || buildPreview2 != null))
+        {
+          if (flag4)
+          {
+            if (objId1 > 0)
+            {
+              Pose objectPose = this.GetObjectPose(objId1);
+              Pose[] beltSlots = this.belt_slots;
+              vector3_1 = objectPose.position + objectPose.rotation * beltSlots[index1].position;
+              quaternion1 = objectPose.rotation * beltSlots[index1].rotation;
+              num1 = objId1;
+              num2 = -1;
+              num3 = 0;
+              flag3 = true;
+              Vector3 from = vector3_2 - vector3_1;
+              Vector3 lhs2 = -from;
+              int beltId = entityPool[objId1].beltId;
+              Assert.Positive(beltId);
+              BeltComponent beltComponent = cargoTraffic.beltPool[beltId];
+              Assert.Positive(beltComponent.segPathId);
+              int segPathId = beltComponent.segPathId;
+              CargoPath cargoPath = cargoTraffic.GetCargoPath(segPathId);
+              Assert.NotNull((object) cargoPath);
+              int num14 = beltComponent.segIndex;
+              int num15 = beltComponent.segIndex + beltComponent.segLength;
+              int num16 = beltComponent.segIndex + beltComponent.segPivotOffset;
+              if (num14 < 4)
+                num14 = 4;
+              if (num14 > cargoPath.pathLength - 5 - 1)
+                num14 = cargoPath.pathLength - 5 - 1;
+              if (num15 < 4)
+                num15 = 4;
+              if (num15 > cargoPath.pathLength - 5 - 1)
+                num15 = cargoPath.pathLength - 5 - 1;
+              if (num16 < 4)
+                num16 = 4;
+              if (num16 > cargoPath.pathLength - 5 - 1)
+                num16 = cargoPath.pathLength - 5 - 1;
+              for (int index6 = num14; index6 < num15; ++index6)
+              {
+                float num17 = Vector3.Dot(lhs2, rhs1);
+                Vector3 pointPo1 = cargoPath.pointPos[index6];
+                Vector3 pointPo2 = cargoPath.pointPos[index6 + 1];
+                Vector3 point = vector3_2 + rhs1 * num17;
+                float t = Kit.ClosestPoint2Straight(pointPo1, pointPo2, point);
+                if ((double) t >= 0.0 && (double) t <= 1.0)
+                {
+                  Vector3 vector3_6 = pointPo1 + (pointPo2 - pointPo1) * t;
+                  vector3_1 = vector3_6 - vector3_6.normalized * 0.15f;
+                  quaternion1 = Quaternion.Slerp(cargoPath.pointRot[index6], cargoPath.pointRot[index6 + 1], t);
+                  Quaternion identity = Quaternion.identity;
+                  Vector3 zero = Vector3.zero;
+                  Quaternion rotation1 = quaternion1 * Quaternion.Euler(0.0f, 90f, 0.0f);
+                  Vector3 to1 = rotation1.Forward();
+                  if ((double) Vector3.Angle(from, to1) < 40.0)
+                    quaternion1 = rotation1;
+                  Quaternion rotation2 = quaternion1 * Quaternion.Euler(0.0f, 180f, 0.0f);
+                  Vector3 to2 = rotation2.Forward();
+                  if ((double) Vector3.Angle(from, to2) < 40.0)
+                    quaternion1 = rotation2;
+                  Quaternion rotation3 = quaternion1 * Quaternion.Euler(0.0f, -90f, 0.0f);
+                  Vector3 to3 = rotation3.Forward();
+                  if ((double) Vector3.Angle(from, to3) < 40.0)
+                    quaternion1 = rotation3;
+                  num3 = index6 - num16;
+                }
+              }
+            }
+            else if (objId1 >= 0)
+              ;
+          }
+          else
+          {
+            Pose pose = new Pose();
+            Pose[] poseArray = (Pose[]) null;
+            if (objId1 != 0)
+            {
+              pose = this.GetObjectPose(objId1);
+              poseArray = this.GetLocalSlots(objId1);
+            }
+            else if (buildPreview2 != null)
+            {
+              pose = new Pose(buildPreview2.lpos, buildPreview2.lrot);
+              poseArray = buildPreview2.desc.slotPoses;
+            }
+            if (poseArray != null && poseArray.Length != 0)
+            {
+              vector3_1 = pose.position + pose.rotation * poseArray[index1].position;
+              quaternion1 = pose.rotation * poseArray[index1].rotation;
+              num1 = objId1;
+              buildPreview1 = buildPreview2;
+              num2 = index1;
+              num3 = 0;
+              flag3 = true;
+            }
+          }
+        }
+        if (flag3)
+        {
+          if (flag1)
+          {
+            bp.lpos2 = vector3_1;
+            bp.lrot2 = quaternion1 * Quaternion.Euler(0.0f, 180f, 0.0f);
+            bp.output = buildPreview1;
+            if (bp.output == null)
+              bp.outputObjId = num1;
+            bp.outputToSlot = num2;
+            bp.outputFromSlot = 0;
+            bp.outputOffset = num3;
+            flag1 = false;
+          }
+          else
+            goto label_68;
+        }
+        else
+          break;
+      }
+      while (flag2);
+      goto label_71;
+label_68:
+      bp.lpos = vector3_1;
+      bp.lrot = quaternion1;
+      bp.input = buildPreview1;
+      if (bp.input == null)
+        bp.inputObjId = num1;
+      bp.inputFromSlot = num2;
+      bp.inputToSlot = 1;
+      bp.inputOffset = num3;
+      flag2 = false;
+    }
+label_71:
+    if (flag1 | flag2)
+      bp.condition = EBuildCondition.NeedConn;
+    else
+      bp.condition = EBuildCondition.Ok;
+  }
+
+  public bool CheckBuildConditions()
+  {
+    if (this.buildPreviews.Count == 0)
+      return false;
+    GameHistoryData history = this.actionBuild.history;
+    bool flag1 = false;
+    int num1 = 1;
+    List<BuildPreview> templatePreviews = this.actionBuild.templatePreviews;
+    if (templatePreviews.Count > 0)
+      num1 = templatePreviews.Count;
+    bool flag2 = false;
+    Vector3 vector3_1 = Vector3.zero;
+    if (this.planet.id == this.planet.galaxy.birthPlanetId && history.SpaceCapsuleExist())
+    {
+      vector3_1 = this.planet.birthPoint;
+      flag2 = true;
+    }
+    for (int index1 = 0; index1 < this.buildPreviews.Count; ++index1)
+    {
+      BuildPreview buildPreview1 = this.buildPreviews[index1];
+      BuildPreview buildPreview2 = this.buildPreviews[index1 / num1 * num1];
+      if (buildPreview1.condition == EBuildCondition.Ok)
+      {
+        Vector3 vector3_2 = buildPreview1.lpos;
+        Quaternion quaternion1 = buildPreview1.lrot;
+        Vector3 lpos2 = buildPreview1.lpos2;
+        Quaternion lrot2 = buildPreview1.lrot2;
+        Pose pose1 = new Pose(buildPreview1.lpos, buildPreview1.lrot);
+        Pose pose2 = new Pose(buildPreview1.lpos2, buildPreview1.lrot2);
+        Vector3 forward1 = pose1.forward;
+        Vector3 forward2 = pose2.forward;
+        Vector3 up1 = pose1.up;
+        Vector3 vector3_3 = Vector3.Lerp(vector3_2, lpos2, 0.5f);
+        Vector3 forward3 = lpos2 - vector3_2;
+        if ((double) forward3.sqrMagnitude < 9.999999747378752E-05)
+          forward3 = Maths.SphericalRotation(vector3_2, 0.0f).Forward();
+        Quaternion quaternion2 = Quaternion.LookRotation(forward3, vector3_3.normalized);
+        bool flag3 = this.planet != null && this.planet.type == EPlanetType.Gas;
+        if ((double) vector3_2.sqrMagnitude < 1.0)
+        {
+          buildPreview1.condition = EBuildCondition.Failure;
+        }
+        else
+        {
+          bool flag4 = buildPreview1.desc.minerType == EMinerType.None && !buildPreview1.desc.isBelt && !buildPreview1.desc.isSplitter && (!buildPreview1.desc.isPowerNode || buildPreview1.desc.isPowerGen || buildPreview1.desc.isAccumulator || buildPreview1.desc.isPowerExchanger) && !buildPreview1.desc.isStation && !buildPreview1.desc.isSilo && !buildPreview1.desc.multiLevel && !buildPreview1.desc.isMonitor;
+          Vector3 vector3_4;
+          if (buildPreview1.desc.veinMiner)
+          {
+            Array.Clear((Array) BuildTool._tmp_ids, 0, BuildTool._tmp_ids.Length);
+            PrebuildData prebuildData = new PrebuildData();
+            int num2 = 0;
+            if (buildPreview1.desc.isVeinCollector)
+            {
+              Vector3 center = vector3_2.normalized * this.controller.cmd.test.magnitude + forward1 * -10.5f;
+              Vector3 rhs = -forward1;
+              Vector3 right = pose1.right;
+              int veinsInAreaNonAlloc = this.actionBuild.nearcdLogic.GetVeinsInAreaNonAlloc(center, 12f, BuildTool._tmp_ids);
+              prebuildData.InitParametersArray(veinsInAreaNonAlloc);
+              VeinData[] veinPool = this.factory.veinPool;
+              EVeinType eveinType = EVeinType.None;
+              for (int index2 = 0; index2 < veinsInAreaNonAlloc; ++index2)
+              {
+                if (BuildTool._tmp_ids[index2] != 0 && veinPool[BuildTool._tmp_ids[index2]].id == BuildTool._tmp_ids[index2])
+                {
+                  if (veinPool[BuildTool._tmp_ids[index2]].type != EVeinType.Oil)
+                  {
+                    Vector3 lhs = veinPool[BuildTool._tmp_ids[index2]].pos - center;
+                    double sqrMagnitude = (double) lhs.sqrMagnitude;
+                    float num3 = Mathf.Abs(Vector3.Dot(lhs, rhs));
+                    float num4 = Mathf.Abs(Vector3.Dot(lhs, right));
+                    if (sqrMagnitude <= 100.0 && (double) num3 <= 7.0 && (double) num4 <= 5.5)
+                    {
+                      if (eveinType != veinPool[BuildTool._tmp_ids[index2]].type)
+                      {
+                        if (eveinType == EVeinType.None)
+                          eveinType = veinPool[BuildTool._tmp_ids[index2]].type;
+                        else
+                          buildPreview1.condition = EBuildCondition.NeedSingleResource;
+                      }
+                      prebuildData.parameters[num2++] = BuildTool._tmp_ids[index2];
+                    }
+                  }
+                }
+                else
+                  Assert.CannotBeReached();
+              }
+            }
+            else
+            {
+              Vector3 center = vector3_2.normalized * this.controller.cmd.test.magnitude + forward1 * -1.2f;
+              Vector3 rhs1 = -forward1;
+              Vector3 lhs = up1;
+              int veinsInAreaNonAlloc = this.actionBuild.nearcdLogic.GetVeinsInAreaNonAlloc(center, 12f, BuildTool._tmp_ids);
+              prebuildData.InitParametersArray(veinsInAreaNonAlloc);
+              VeinData[] veinPool = this.factory.veinPool;
+              EVeinType eveinType = EVeinType.None;
+              for (int index3 = 0; index3 < veinsInAreaNonAlloc; ++index3)
+              {
+                if (BuildTool._tmp_ids[index3] != 0 && veinPool[BuildTool._tmp_ids[index3]].id == BuildTool._tmp_ids[index3])
+                {
+                  if (veinPool[BuildTool._tmp_ids[index3]].type != EVeinType.Oil)
+                  {
+                    Vector3 rhs2 = veinPool[BuildTool._tmp_ids[index3]].pos - center;
+                    float f = Vector3.Dot(lhs, rhs2);
+                    Vector3 vector3_5 = rhs2 - lhs * f;
+                    double sqrMagnitude = (double) vector3_5.sqrMagnitude;
+                    float num5 = Vector3.Dot(vector3_5.normalized, rhs1);
+                    if (sqrMagnitude <= 961.0 / 16.0 && (double) num5 >= 0.7300000190734863 && (double) Mathf.Abs(f) <= 2.0)
+                    {
+                      if (eveinType != veinPool[BuildTool._tmp_ids[index3]].type)
+                      {
+                        if (eveinType == EVeinType.None)
+                          eveinType = veinPool[BuildTool._tmp_ids[index3]].type;
+                        else
+                          buildPreview1.condition = EBuildCondition.NeedResource;
+                      }
+                      prebuildData.parameters[num2++] = BuildTool._tmp_ids[index3];
+                    }
+                  }
+                }
+                else
+                  Assert.CannotBeReached();
+              }
+            }
+            prebuildData.paramCount = num2;
+            prebuildData.ArrageParametersArray();
+            if (buildPreview1.desc.isVeinCollector)
+            {
+              if (buildPreview1.paramCount == 0)
+              {
+                buildPreview1.parameters = new int[2048];
+                buildPreview1.paramCount = 2048;
+              }
+              if (prebuildData.paramCount > 0)
+              {
+                Array.Resize<int>(ref buildPreview1.parameters, buildPreview1.paramCount + prebuildData.paramCount);
+                Array.Copy((Array) prebuildData.parameters, 0, (Array) buildPreview1.parameters, buildPreview1.paramCount, prebuildData.paramCount);
+                buildPreview1.paramCount += prebuildData.paramCount;
+              }
+            }
+            else
+            {
+              buildPreview1.parameters = prebuildData.parameters;
+              buildPreview1.paramCount = prebuildData.paramCount;
+            }
+            Array.Clear((Array) BuildTool._tmp_ids, 0, BuildTool._tmp_ids.Length);
+            if (prebuildData.paramCount == 0)
+            {
+              buildPreview1.condition = EBuildCondition.NeedResource;
+              continue;
+            }
+          }
+          else if (buildPreview1.desc.oilMiner)
+          {
+            Array.Clear((Array) BuildTool._tmp_ids, 0, BuildTool._tmp_ids.Length);
+            Vector3 center = vector3_2;
+            Vector3 lhs = -up1;
+            int veinsInAreaNonAlloc = this.actionBuild.nearcdLogic.GetVeinsInAreaNonAlloc(center, 10f, BuildTool._tmp_ids);
+            PrebuildData prebuildData = new PrebuildData();
+            prebuildData.InitParametersArray(veinsInAreaNonAlloc);
+            VeinData[] veinPool = this.factory.veinPool;
+            int num6 = 0;
+            float num7 = 100f;
+            Vector3 pos1 = center;
+            for (int index4 = 0; index4 < veinsInAreaNonAlloc; ++index4)
+            {
+              if (BuildTool._tmp_ids[index4] != 0 && veinPool[BuildTool._tmp_ids[index4]].id == BuildTool._tmp_ids[index4] && veinPool[BuildTool._tmp_ids[index4]].type == EVeinType.Oil)
+              {
+                Vector3 pos2 = veinPool[BuildTool._tmp_ids[index4]].pos;
+                Vector3 rhs = pos2 - center;
+                float num8 = Vector3.Dot(lhs, rhs);
+                float sqrMagnitude = (rhs - lhs * num8).sqrMagnitude;
+                if ((double) sqrMagnitude < (double) num7)
+                {
+                  num7 = sqrMagnitude;
+                  num6 = BuildTool._tmp_ids[index4];
+                  pos1 = pos2;
+                }
+              }
+            }
+            if (num6 != 0)
+            {
+              prebuildData.parameters[0] = num6;
+              prebuildData.paramCount = 1;
+              prebuildData.ArrageParametersArray();
+              buildPreview1.parameters = prebuildData.parameters;
+              buildPreview1.paramCount = prebuildData.paramCount;
+              Vector3 pos3 = this.factory.planet.aux.Snap(pos1, true);
+              ref Pose local = ref pose1;
+              BuildPreview buildPreview3 = buildPreview1;
+              buildPreview1.lpos = vector3_4 = pos3;
+              Vector3 vector3_6;
+              vector3_4 = vector3_6 = vector3_4;
+              buildPreview3.lpos2 = vector3_6;
+              Vector3 vector3_7;
+              vector3_2 = vector3_7 = vector3_4;
+              local.position = vector3_7;
+              pose1.rotation = quaternion1 = buildPreview1.lrot2 = buildPreview1.lrot = Maths.SphericalRotation(pos3, this.yaw);
+              forward1 = pose1.forward;
+              Vector3 up2 = pose1.up;
+              Array.Clear((Array) BuildTool._tmp_ids, 0, BuildTool._tmp_ids.Length);
+            }
+            else
+            {
+              buildPreview1.condition = EBuildCondition.NeedResource;
+              continue;
+            }
+          }
+          if (buildPreview1.desc.isTank || buildPreview1.desc.isStorage || buildPreview1.desc.isLab || buildPreview1.desc.isSplitter)
+          {
+            int num9 = buildPreview1.desc.isLab ? history.labLevel : history.storageLevel;
+            int num10 = buildPreview1.desc.isLab ? 15 : 8;
+            int num11 = 0;
+            bool isOutput;
+            int otherObjId;
+            int otherSlot;
+            for (this.factory.ReadObjectConn(buildPreview1.inputObjId, 14, out isOutput, out otherObjId, out otherSlot); otherObjId != 0; this.factory.ReadObjectConn(otherObjId, 14, out isOutput, out otherObjId, out otherSlot))
+              ++num11;
+            if (num11 >= num9 - 1)
+            {
+              flag1 = num9 >= num10;
+              buildPreview1.condition = EBuildCondition.OutOfVerticalConstructionHeight;
+              continue;
+            }
+          }
+          Vector3 vector3_8 = this.player.position;
+          float num12 = this.player.mecha.buildArea * this.player.mecha.buildArea;
+          if (flag3)
+          {
+            vector3_8 = vector3_8.normalized;
+            vector3_8 *= this.planet.realRadius;
+            num12 *= 6f;
+          }
+          if ((double) (vector3_2 - vector3_8).sqrMagnitude > (double) num12)
+          {
+            buildPreview1.condition = EBuildCondition.OutOfReach;
+          }
+          else
+          {
+            if (this.planet != null)
+            {
+              float num13 = (float) ((double) history.buildMaxHeight + 0.5 + (double) this.planet.realRadius * (flag3 ? 1.024999976158142 : 1.0));
+              if ((double) vector3_2.sqrMagnitude > (double) num13 * (double) num13)
+              {
+                buildPreview1.condition = EBuildCondition.OutOfReach;
+                continue;
+              }
+            }
+            if (buildPreview1.desc.hasBuildCollider)
+            {
+              ColliderData[] buildColliders = buildPreview1.desc.buildColliders;
+              for (int index5 = 0; index5 < buildColliders.Length; ++index5)
+              {
+                ColliderData buildCollider = buildPreview1.desc.buildColliders[index5];
+                if (buildPreview1.desc.isInserter)
+                {
+                  buildCollider.ext = new Vector3(buildCollider.ext.x, buildCollider.ext.y, (float) ((double) Vector3.Distance(lpos2, vector3_2) * 0.5 + (double) buildCollider.ext.z - 0.5));
+                  if (this.ObjectIsBelt(buildPreview1.inputObjId) || buildPreview1.input != null && buildPreview1.input.desc.isBelt)
+                  {
+                    buildCollider.pos.z -= 0.35f;
+                    buildCollider.ext.z += 0.35f;
+                  }
+                  else if (buildPreview1.inputObjId == 0 && buildPreview1.input == null)
+                  {
+                    buildCollider.pos.z -= 0.35f;
+                    buildCollider.ext.z += 0.35f;
+                  }
+                  if (this.ObjectIsBelt(buildPreview1.outputObjId) || buildPreview1.output != null && buildPreview1.output.desc.isBelt)
+                  {
+                    buildCollider.pos.z += 0.35f;
+                    buildCollider.ext.z += 0.35f;
+                  }
+                  else if (buildPreview1.outputObjId == 0 && buildPreview1.output == null)
+                  {
+                    buildCollider.pos.z += 0.35f;
+                    buildCollider.ext.z += 0.35f;
+                  }
+                  if ((double) buildCollider.ext.z < 0.10000000149011612)
+                    buildCollider.ext.z = 0.1f;
+                  buildCollider.pos = vector3_3 + quaternion2 * buildCollider.pos;
+                  buildCollider.q = quaternion2 * buildCollider.q;
+                  buildCollider.DebugDraw();
+                }
+                else
+                {
+                  buildCollider.pos = vector3_2 + quaternion1 * buildCollider.pos;
+                  buildCollider.q = quaternion1 * buildCollider.q;
+                }
+                int mask = 428032;
+                if (buildPreview1.desc.veinMiner || buildPreview1.desc.oilMiner)
+                  mask = 425984;
+                Array.Clear((Array) BuildTool._tmp_cols, 0, BuildTool._tmp_cols.Length);
+                int num14 = Physics.OverlapBoxNonAlloc(buildCollider.pos, buildCollider.ext, BuildTool._tmp_cols, buildCollider.q, mask, QueryTriggerInteraction.Collide);
+                if (num14 > 0)
+                {
+                  bool flag5 = false;
+                  PlanetPhysics physics = this.player.planetData.physics;
+                  for (int index6 = 0; index6 < num14 && buildPreview1.coverObjId == 0; ++index6)
+                  {
+                    ColliderData cd;
+                    int num15 = physics.GetColliderData(BuildTool._tmp_cols[index6], out cd) ? 1 : 0;
+                    int objId = 0;
+                    if (num15 != 0 && cd.isForBuild)
+                    {
+                      if (cd.objType == EObjectType.Entity)
+                        objId = cd.objId;
+                      else if (cd.objType == EObjectType.Prebuild)
+                        objId = -cd.objId;
+                    }
+                    Collider tmpCol = BuildTool._tmp_cols[index6];
+                    if (tmpCol.gameObject.layer == 18)
+                    {
+                      BuildPreviewModel component = tmpCol.GetComponent<BuildPreviewModel>();
+                      if ((UnityEngine.Object) component != (UnityEngine.Object) null && component.index == buildPreview1.previewIndex || buildPreview1.desc.isInserter && !component.buildPreview.desc.isInserter || !buildPreview1.desc.isInserter && component.buildPreview.desc.isInserter)
+                        continue;
+                    }
+                    else if (buildPreview1.desc.isInserter)
+                    {
+                      if (objId != 0 && (objId == buildPreview1.inputObjId || objId == buildPreview1.outputObjId || objId == buildPreview2.coverObjId))
+                        continue;
+                    }
+                    else if (buildPreview1.desc.isStorage && objId != 0 && this.GetItemProto(objId).prefabDesc.addonType == EAddonType.Storage)
+                    {
+                      int otherObjId;
+                      this.factory.ReadObjectConn(objId, 0, out bool _, out otherObjId, out int _);
+                      if (otherObjId != 0 && (otherObjId < 0 ? (int) this.factory.prebuildPool[-otherObjId].protoId : (int) this.factory.entityPool[otherObjId].protoId) == buildPreview1.item.ID)
+                        continue;
+                    }
+                    flag5 = true;
+                    if (flag4 && objId != 0)
+                    {
+                      ItemProto itemProto = this.GetItemProto(objId);
+                      if (buildPreview1.item.IsSimilar(itemProto))
+                      {
+                        Pose objectPose = this.GetObjectPose(objId);
+                        Pose objectPose2 = this.GetObjectPose2(objId);
+                        vector3_4 = objectPose.position - buildPreview1.lpos;
+                        if ((double) vector3_4.sqrMagnitude < 0.01)
+                        {
+                          vector3_4 = objectPose2.position - buildPreview1.lpos2;
+                          if ((double) vector3_4.sqrMagnitude < 0.01)
+                          {
+                            vector3_4 = objectPose.forward - forward1;
+                            if ((double) vector3_4.sqrMagnitude < 1E-06 || buildPreview1.desc.isInserter)
+                            {
+                              if (buildPreview1.item.ID == itemProto.ID)
+                              {
+                                buildPreview1.coverObjId = objId;
+                                buildPreview1.willRemoveCover = false;
+                                flag5 = false;
+                                break;
+                              }
+                              buildPreview1.coverObjId = objId;
+                              buildPreview1.willRemoveCover = true;
+                              flag5 = false;
+                              break;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  if (flag5)
+                  {
+                    buildPreview1.condition = EBuildCondition.Collide;
+                    break;
+                  }
+                }
+                if (buildPreview1.desc.veinMiner && Physics.CheckBox(buildCollider.pos, buildCollider.ext, buildCollider.q, 2048, QueryTriggerInteraction.Collide))
+                {
+                  buildPreview1.condition = EBuildCondition.Collide;
+                  break;
+                }
+              }
+              if (buildPreview1.condition != EBuildCondition.Ok)
+                continue;
+            }
+            if (buildPreview2.coverObjId != 0 && buildPreview1.desc.isInserter)
+            {
+              if (buildPreview1.output == buildPreview2)
+              {
+                buildPreview1.outputObjId = buildPreview2.coverObjId;
+                buildPreview1.output = (BuildPreview) null;
+              }
+              if (buildPreview1.input == buildPreview2)
+              {
+                buildPreview1.inputObjId = buildPreview2.coverObjId;
+                buildPreview1.input = (BuildPreview) null;
+              }
+            }
+            if (buildPreview1.coverObjId == 0 || buildPreview1.willRemoveCover)
+            {
+              int id = buildPreview1.item.ID;
+              int count = 1;
+              if (this.tmpInhandId == id && this.tmpInhandCount > 0)
+              {
+                count = 1;
+                --this.tmpInhandCount;
+              }
+              else
+                this.tmpPackage.TakeTailItems(ref id, ref count, out int _);
+              if (count == 0)
+              {
+                buildPreview1.condition = EBuildCondition.NotEnoughItem;
+                continue;
+              }
+            }
+            if (buildPreview1.coverObjId == 0)
+            {
+              if (buildPreview1.desc.isPowerNode && !buildPreview1.desc.isAccumulator)
+              {
+                if (buildPreview1.nearestPowerObjId == null || buildPreview1.nearestPowerObjId.Length != buildPreview1.nearestPowerObjId.Length)
+                  buildPreview1.nearestPowerObjId = new int[this.factory.powerSystem.netCursor];
+                Array.Clear((Array) buildPreview1.nearestPowerObjId, 0, buildPreview1.nearestPowerObjId.Length);
+                float num16 = buildPreview1.desc.powerConnectDistance * buildPreview1.desc.powerConnectDistance;
+                float x = vector3_2.x;
+                float y = vector3_2.y;
+                float z = vector3_2.z;
+                int netCursor = this.factory.powerSystem.netCursor;
+                PowerNetwork[] netPool = this.factory.powerSystem.netPool;
+                PowerNodeComponent[] nodePool = this.factory.powerSystem.nodePool;
+                PowerGeneratorComponent[] genPool = this.factory.powerSystem.genPool;
+                bool windForcedPower = buildPreview1.desc.windForcedPower;
+                bool geothermal = buildPreview1.desc.geothermal;
+                for (int index7 = 1; index7 < netCursor; ++index7)
+                {
+                  if (netPool[index7] != null && netPool[index7].id != 0)
+                  {
+                    List<PowerNetworkStructures.Node> nodes = netPool[index7].nodes;
+                    int count = nodes.Count;
+                    float num17 = 4900f;
+                    for (int index8 = 0; index8 < count; ++index8)
+                    {
+                      double num18 = (double) x - (double) nodes[index8].x;
+                      float num19 = y - nodes[index8].y;
+                      float num20 = z - nodes[index8].z;
+                      float num21 = (float) (num18 * num18 + (double) num19 * (double) num19 + (double) num20 * (double) num20);
+                      if ((double) num21 < (double) num17 && ((double) num21 < (double) nodes[index8].connDistance2 || (double) num21 < (double) num16))
+                      {
+                        buildPreview1.nearestPowerObjId[index7] = nodePool[nodes[index8].id].entityId;
+                        num17 = num21;
+                      }
+                      if (windForcedPower && nodes[index8].genId > 0 && genPool[nodes[index8].genId].id == nodes[index8].genId && genPool[nodes[index8].genId].wind && (double) num21 < 110.25)
+                        buildPreview1.condition = EBuildCondition.WindTooClose;
+                      else if (geothermal && nodes[index8].genId > 0 && genPool[nodes[index8].genId].id == nodes[index8].genId && genPool[nodes[index8].genId].geothermal && (double) num21 < 144.0)
+                        buildPreview1.condition = EBuildCondition.GeothermalTooClose;
+                      else if (!buildPreview1.desc.isPowerGen && nodes[index8].genId == 0 && (double) num21 < 12.25)
+                        buildPreview1.condition = EBuildCondition.PowerTooClose;
+                      else if ((double) num21 < 12.25)
+                        buildPreview1.condition = EBuildCondition.PowerTooClose;
+                    }
+                  }
+                }
+                PrebuildData[] prebuildPool = this.factory.prebuildPool;
+                int prebuildCursor = this.factory.prebuildCursor;
+                float num22 = 4900f;
+                for (int index9 = 1; index9 < prebuildCursor; ++index9)
+                {
+                  if (prebuildPool[index9].id == index9 && prebuildPool[index9].protoId >= (short) 2199 && prebuildPool[index9].protoId <= (short) 2299)
+                  {
+                    double num23 = (double) x - (double) prebuildPool[index9].pos.x;
+                    float num24 = y - prebuildPool[index9].pos.y;
+                    float num25 = z - prebuildPool[index9].pos.z;
+                    float num26 = (float) (num23 * num23 + (double) num24 * (double) num24 + (double) num25 * (double) num25);
+                    if ((double) num26 < (double) num22)
+                    {
+                      ItemProto itemProto = LDB.items.Select((int) prebuildPool[index9].protoId);
+                      if (itemProto != null && itemProto.prefabDesc.isPowerNode)
+                      {
+                        if ((double) num26 < (double) itemProto.prefabDesc.powerConnectDistance * (double) itemProto.prefabDesc.powerConnectDistance || (double) num26 < (double) num16)
+                        {
+                          buildPreview1.nearestPowerObjId[0] = -index9;
+                          num22 = num26;
+                        }
+                        if (windForcedPower && itemProto.prefabDesc.windForcedPower && (double) num26 < 110.25)
+                          buildPreview1.condition = EBuildCondition.WindTooClose;
+                        else if (geothermal && itemProto.prefabDesc.geothermal && (double) num26 < 144.0)
+                          buildPreview1.condition = EBuildCondition.GeothermalTooClose;
+                        else if (!buildPreview1.desc.isPowerGen && !itemProto.prefabDesc.isPowerGen && (double) num26 < 12.25)
+                          buildPreview1.condition = EBuildCondition.PowerTooClose;
+                        else if ((double) num26 < 12.25)
+                          buildPreview1.condition = EBuildCondition.PowerTooClose;
+                      }
+                    }
+                  }
+                }
+              }
+              if (buildPreview1.desc.isCollectStation)
+              {
+                if (this.planet != null && this.planet.gasItems != null && this.planet.gasItems.Length != 0)
+                {
+                  for (int index10 = 0; index10 < this.planet.gasItems.Length; ++index10)
+                  {
+                    double num27 = 0.0;
+                    if ((double) buildPreview1.desc.stationCollectSpeed * this.planet.gasTotalHeat != 0.0)
+                      num27 = 1.0 - (double) buildPreview1.desc.workEnergyPerTick / ((double) buildPreview1.desc.stationCollectSpeed * this.planet.gasTotalHeat * (1.0 / 60.0));
+                    if (num27 <= 0.0)
+                      buildPreview1.condition = EBuildCondition.NotEnoughEnergyToWorkCollection;
+                  }
+                  float y = this.cursorTarget.y;
+                  if ((double) y > 0.10000000149011612 || (double) y < -0.10000000149011612)
+                  {
+                    buildPreview1.condition = EBuildCondition.BuildInEquator;
+                    continue;
+                  }
+                }
+                else
+                {
+                  buildPreview1.condition = EBuildCondition.OutOfReach;
+                  continue;
+                }
+              }
+              if (buildPreview1.desc.isStation)
+              {
+                StationComponent[] stationPool = this.factory.transport.stationPool;
+                int stationCursor = this.factory.transport.stationCursor;
+                PrebuildData[] prebuildPool = this.factory.prebuildPool;
+                int prebuildCursor = this.factory.prebuildCursor;
+                EntityData[] entityPool = this.factory.entityPool;
+                float num28 = 225f;
+                float num29 = 625f;
+                float num30 = 841f;
+                float num31 = 14297f;
+                float num32 = buildPreview1.desc.isVeinCollector ? num29 : num28;
+                float num33 = buildPreview1.desc.isCollectStation ? num31 : num30;
+                for (int index11 = 1; index11 < stationCursor; ++index11)
+                {
+                  if (stationPool[index11] != null && stationPool[index11].id == index11 && (!buildPreview1.desc.isVeinCollector || !stationPool[index11].isVeinCollector))
+                  {
+                    float num34 = stationPool[index11].isStellar || buildPreview1.desc.isStellarStation ? num33 : num32;
+                    vector3_4 = entityPool[stationPool[index11].entityId].pos - vector3_2;
+                    if ((double) vector3_4.sqrMagnitude < (double) num34)
+                      buildPreview1.condition = !stationPool[index11].isVeinCollector ? EBuildCondition.TowerTooClose : EBuildCondition.MK2MinerTooClose;
+                  }
+                }
+                for (int index12 = 1; index12 < prebuildCursor; ++index12)
+                {
+                  if (prebuildPool[index12].id == index12)
+                  {
+                    ItemProto itemProto = LDB.items.Select((int) prebuildPool[index12].protoId);
+                    if (itemProto != null && itemProto.prefabDesc.isStation && (!buildPreview1.desc.isVeinCollector || !itemProto.prefabDesc.isVeinCollector))
+                    {
+                      float num35 = itemProto.prefabDesc.isStellarStation || buildPreview1.desc.isStellarStation ? num33 : num32;
+                      if (buildPreview1.desc.isVeinCollector && itemProto.prefabDesc.isVeinCollector)
+                        num35 = 0.0f;
+                      double num36 = (double) vector3_2.x - (double) prebuildPool[index12].pos.x;
+                      float num37 = vector3_2.y - prebuildPool[index12].pos.y;
+                      float num38 = vector3_2.z - prebuildPool[index12].pos.z;
+                      if (num36 * num36 + (double) num37 * (double) num37 + (double) num38 * (double) num38 < (double) num35)
+                        buildPreview1.condition = !itemProto.prefabDesc.isVeinCollector ? EBuildCondition.TowerTooClose : EBuildCondition.MK2MinerTooClose;
+                    }
+                  }
+                }
+              }
+              if (!buildPreview1.desc.isInserter && (double) vector3_2.magnitude - (double) this.planet.realRadius + (double) buildPreview1.desc.cullingHeight > 4.900000095367432 && !buildPreview1.desc.isEjector)
+              {
+                EjectorComponent[] ejectorPool = this.factory.factorySystem.ejectorPool;
+                int ejectorCursor = this.factory.factorySystem.ejectorCursor;
+                PrebuildData[] prebuildPool = this.factory.prebuildPool;
+                int prebuildCursor = this.factory.prebuildCursor;
+                EntityData[] entityPool = this.factory.entityPool;
+                Vector3 ext = buildPreview1.desc.buildCollider.ext;
+                float num39 = 7.2f + Mathf.Sqrt((float) ((double) ext.x * (double) ext.x + (double) ext.z * (double) ext.z));
+                Vector3 vector3_9 = vector3_2;
+                if (buildPreview1.desc.isVeinCollector)
+                {
+                  num39 = 14.6f;
+                  vector3_9 -= forward1 * 10f;
+                }
+                for (int index13 = 1; index13 < ejectorCursor; ++index13)
+                {
+                  if (ejectorPool[index13].id == index13)
+                  {
+                    vector3_4 = entityPool[ejectorPool[index13].entityId].pos - vector3_9;
+                    if ((double) vector3_4.sqrMagnitude < (double) num39 * (double) num39)
+                      buildPreview1.condition = EBuildCondition.EjectorTooClose;
+                  }
+                }
+                for (int index14 = 1; index14 < prebuildCursor; ++index14)
+                {
+                  if (prebuildPool[index14].id == index14)
+                  {
+                    ItemProto itemProto = LDB.items.Select((int) prebuildPool[index14].protoId);
+                    if (itemProto != null && itemProto.prefabDesc.isEjector)
+                    {
+                      double num40 = (double) vector3_9.x - (double) prebuildPool[index14].pos.x;
+                      float num41 = vector3_9.y - prebuildPool[index14].pos.y;
+                      float num42 = vector3_9.z - prebuildPool[index14].pos.z;
+                      if (num40 * num40 + (double) num41 * (double) num41 + (double) num42 * (double) num42 < (double) num39 * (double) num39)
+                        buildPreview1.condition = EBuildCondition.EjectorTooClose;
+                    }
+                  }
+                }
+              }
+              if (buildPreview1.desc.isEjector)
+              {
+                this.GetOverlappedObjectsNonAlloc(vector3_2, 20f, 14.5f);
+                for (int index15 = 0; index15 < BuildTool._overlappedCount; ++index15)
+                {
+                  PrefabDesc prefabDesc = this.GetPrefabDesc(BuildTool._overlappedIds[index15]);
+                  Pose objectPose = this.GetObjectPose(BuildTool._overlappedIds[index15]);
+                  Vector3 position = objectPose.position;
+                  if ((double) position.magnitude - (double) this.planet.realRadius + (double) prefabDesc.cullingHeight > 4.900000095367432)
+                  {
+                    float num43 = vector3_2.x - position.x;
+                    float num44 = vector3_2.y - position.y;
+                    float num45 = vector3_2.z - position.z;
+                    if (prefabDesc.isVeinCollector)
+                    {
+                      num43 += objectPose.forward.x * 10f;
+                      num44 += objectPose.forward.y * 10f;
+                      num45 += objectPose.forward.z * 10f;
+                    }
+                    double num46 = (double) num43 * (double) num43 + (double) num44 * (double) num44 + (double) num45 * (double) num45;
+                    Vector3 ext = prefabDesc.buildCollider.ext;
+                    float num47 = 7.2f + Mathf.Sqrt((float) ((double) ext.x * (double) ext.x + (double) ext.z * (double) ext.z));
+                    if (prefabDesc.isEjector)
+                      num47 = 10.6f;
+                    else if (prefabDesc.isVeinCollector)
+                      num47 = 14.6f;
+                    double num48 = (double) num47 * (double) num47;
+                    if (num46 < num48)
+                      buildPreview1.condition = EBuildCondition.BlockTooClose;
+                  }
+                }
+              }
+              if (flag2 && (double) vector3_2.magnitude < (double) this.planet.realRadius + 3.0)
+              {
+                Vector3 ext = buildPreview1.desc.buildCollider.ext;
+                float num49 = Mathf.Sqrt((float) ((double) ext.x * (double) ext.x + (double) ext.z * (double) ext.z));
+                vector3_4 = vector3_2 - vector3_1;
+                if ((double) vector3_4.magnitude - (double) num49 < 3.700000047683716)
+                {
+                  buildPreview1.condition = EBuildCondition.Collide;
+                  continue;
+                }
+              }
+              if ((!buildPreview1.desc.multiLevel || buildPreview1.inputObjId == 0) && !buildPreview1.desc.isInserter)
+              {
+                RaycastHit hitInfo;
+                for (int index16 = 0; index16 < buildPreview1.desc.landPoints.Length; ++index16)
+                {
+                  Vector3 landPoint = buildPreview1.desc.landPoints[index16] with
+                  {
+                    y = 0.0f
+                  };
+                  Vector3 vector3_10 = vector3_2 + quaternion1 * landPoint;
+                  Vector3 normalized = vector3_10.normalized;
+                  Vector3 origin = vector3_10 + normalized * 3f;
+                  Vector3 direction = -normalized;
+                  if (flag3)
+                  {
+                    Vector3 vector3_11 = this.cursorTarget.normalized * this.planet.realRadius * 0.025f;
+                    origin -= vector3_11;
+                  }
+                  if (Physics.Raycast(new Ray(origin, direction), out hitInfo, 5f, 8704, QueryTriggerInteraction.Collide))
+                  {
+                    float distance = hitInfo.distance;
+                    vector3_4 = hitInfo.point;
+                    if ((double) vector3_4.magnitude - (double) this.factory.planet.realRadius < -0.30000001192092896)
+                    {
+                      buildPreview1.condition = EBuildCondition.NeedGround;
+                    }
+                    else
+                    {
+                      float num50 = !Physics.Raycast(new Ray(origin, direction), out hitInfo, 5f, 16, QueryTriggerInteraction.Collide) ? 1000f : hitInfo.distance;
+                      if ((double) distance - (double) num50 > 0.27000001072883606)
+                        buildPreview1.condition = EBuildCondition.NeedGround;
+                    }
+                  }
+                  else
+                    buildPreview1.condition = EBuildCondition.NeedGround;
+                }
+                for (int index17 = 0; index17 < buildPreview1.desc.waterPoints.Length; ++index17)
+                {
+                  bool flag6 = false;
+                  for (int index18 = 0; index18 < buildPreview1.desc.waterTypes.Length; ++index18)
+                  {
+                    if (this.factory.planet.waterItemId == buildPreview1.desc.waterTypes[index18])
+                    {
+                      flag6 = true;
+                      break;
+                    }
+                  }
+                  if (!flag6)
+                  {
+                    buildPreview1.condition = !buildPreview1.desc.geothermal ? EBuildCondition.NeedWater : EBuildCondition.NeedGeothermalResource;
+                  }
+                  else
+                  {
+                    Vector3 waterPoint = buildPreview1.desc.waterPoints[index17] with
+                    {
+                      y = this.planet.waterHeight
+                    };
+                    Vector3 origin = vector3_2 + quaternion1 * waterPoint;
+                    Vector3 normalized = origin.normalized;
+                    origin += normalized * 3f;
+                    Vector3 direction = -normalized;
+                    float num51 = !Physics.Raycast(new Ray(origin, direction), out hitInfo, 5f, 8704, QueryTriggerInteraction.Collide) ? 1000f : hitInfo.distance;
+                    if (Physics.Raycast(new Ray(origin, direction), out hitInfo, 5f, 16, QueryTriggerInteraction.Collide))
+                    {
+                      float distance = hitInfo.distance;
+                      if ((double) num51 - (double) distance <= 0.27000001072883606)
+                        buildPreview1.condition = !buildPreview1.desc.geothermal ? EBuildCondition.NeedWater : EBuildCondition.NeedGeothermalResource;
+                    }
+                    else
+                      buildPreview1.condition = !buildPreview1.desc.geothermal ? EBuildCondition.NeedWater : EBuildCondition.NeedGeothermalResource;
+                  }
+                }
+              }
+              if (buildPreview1.desc.isInserter && buildPreview1.condition == EBuildCondition.Ok)
+              {
+                bool flag7 = this.ObjectIsBelt(buildPreview1.inputObjId) || buildPreview1.input != null && buildPreview1.input.desc.isBelt;
+                bool flag8 = this.ObjectIsBelt(buildPreview1.outputObjId) || buildPreview1.output != null && buildPreview1.output.desc.isBelt;
+                Vector3 zero = Vector3.zero;
+                Vector3 vector3_12 = buildPreview1.output == null ? this.GetObjectPose(buildPreview1.outputObjId).position : buildPreview1.output.lpos;
+                Vector3 vector3_13 = buildPreview1.input == null ? this.GetObjectPose(buildPreview1.inputObjId).position : buildPreview1.input.lpos;
+                float num52 = this.actionBuild.planetAux.mainGrid.CalcSegmentsAcross(!flag7 || flag8 ? (!(!flag7 & flag8) ? (vector3_12 + vector3_13) * 0.5f : vector3_13) : vector3_12, buildPreview1.lpos, buildPreview1.lpos2);
+                float num53 = num52;
+                float magnitude = forward3.magnitude;
+                float num54 = 5.5f;
+                float num55 = 0.6f;
+                float num56 = 3.499f;
+                float num57 = 0.88f;
+                if (flag7 & flag8)
+                {
+                  num55 = 0.4f;
+                  num54 = 5f;
+                  num56 = 3.2f;
+                  num57 = 0.8f;
+                }
+                else if (!flag7 && !flag8)
+                {
+                  num55 = 0.9f;
+                  num54 = 7.5f;
+                  num56 = 3.799f;
+                  num57 = 1.451f;
+                  num53 -= 0.3f;
+                }
+                if ((double) magnitude > (double) num54)
+                  buildPreview1.condition = EBuildCondition.TooFar;
+                else if ((double) magnitude < (double) num55)
+                  buildPreview1.condition = EBuildCondition.TooClose;
+                else if ((double) num52 > (double) num56)
+                  buildPreview1.condition = EBuildCondition.TooFar;
+                else if ((double) num52 < (double) num57)
+                {
+                  buildPreview1.condition = EBuildCondition.TooClose;
+                }
+                else
+                {
+                  int num58 = Mathf.RoundToInt(Mathf.Clamp(num53, 1f, 3f));
+                  buildPreview1.SetOneParameter(num58);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    bool flag9 = true;
+    for (int index = 0; index < this.buildPreviews.Count; ++index)
+    {
+      BuildPreview buildPreview = this.buildPreviews[index];
+      if (buildPreview.condition != EBuildCondition.Ok && buildPreview.condition != EBuildCondition.NeedConn)
+      {
+        flag9 = false;
+        this.actionBuild.model.cursorState = -1;
+        this.actionBuild.model.cursorText = buildPreview.conditionText;
+        if (buildPreview.condition == EBuildCondition.OutOfVerticalConstructionHeight && !flag1)
+        {
+          this.actionBuild.model.cursorText += "垂直建造可升级".Translate();
+          break;
+        }
+        break;
+      }
+    }
+    if (flag9)
+    {
+      this.actionBuild.model.cursorState = 0;
+      string str = this.dotCount > 1 ? "    (" + this.dotCount.ToString() + ")" : "";
+      this.actionBuild.model.cursorText = "点击鼠标建造".Translate() + str;
+      if (this.buildPreviews.Count == 1 && this.buildPreviews[0].desc.geothermal)
+      {
+        float geothermalStrenth = this.factory.powerSystem.CalculateGeothermalStrenth(this.buildPreviews[0].lpos, this.buildPreviews[0].lrot);
+        BuildModel model = this.actionBuild.model;
+        model.cursorText = model.cursorText + "\r\n" + "地热".Translate() + ":" + (geothermalStrenth * 100f).ToString("0") + "%";
+      }
+    }
+    if (!flag9 && !VFInput.onGUI)
+      UICursor.SetCursor(ECursor.Ban);
+    return flag9;
+  }
+
+  public bool ConfirmOperation(bool condition)
+  {
+    if (VFInput._buildConfirm.onUp)
+    {
+      this.controller.cmd.stage = 0;
+      this.isDragging = false;
+      if (this.waitForConfirm)
+        return condition;
+    }
+    if (!VFInput._buildConfirm.pressing)
+    {
+      this.controller.cmd.stage = 0;
+      this.isDragging = false;
+    }
+    return false;
+  }
+
+  public void CreatePrebuilds()
+  {
+    foreach (BuildPreview buildPreview in this.buildPreviews)
+    {
+      if (buildPreview.condition == EBuildCondition.Ok && buildPreview.coverObjId == 0)
+      {
+        if (buildPreview.isConnNode)
+          buildPreview.lrot = Maths.SphericalRotation(buildPreview.lpos, 0.0f);
+        PrebuildData prebuild = new PrebuildData();
+        prebuild.protoId = (short) buildPreview.item.ID;
+        prebuild.modelIndex = (short) buildPreview.desc.modelIndex;
+        prebuild.pos = buildPreview.lpos;
+        prebuild.pos2 = buildPreview.lpos2;
+        prebuild.rot = buildPreview.lrot;
+        prebuild.rot2 = buildPreview.lrot2;
+        prebuild.pickOffset = (short) buildPreview.inputOffset;
+        prebuild.insertOffset = (short) buildPreview.outputOffset;
+        prebuild.recipeId = buildPreview.recipeId;
+        prebuild.filterId = buildPreview.filterId;
+        prebuild.InitParametersArray(buildPreview.paramCount);
+        for (int index = 0; index < buildPreview.paramCount; ++index)
+          prebuild.parameters[index] = buildPreview.parameters[index];
+        int id = buildPreview.item.ID;
+        int count;
+        if (this.player.inhandItemId == id && this.player.inhandItemCount > 0)
+        {
+          count = 1;
+          this.player.UseHandItems(count, out int _);
+        }
+        else
+        {
+          count = 1;
+          this.player.package.TakeTailItems(ref id, ref count, out int _);
+        }
+        if (count == 1)
+        {
+          buildPreview.objId = -this.factory.AddPrebuildDataWithComponents(prebuild);
+        }
+        else
+        {
+          Assert.CannotBeReached();
+          UIRealtimeTip.Popup("物品不足".Translate(), tipId: 1);
+        }
+      }
+    }
+    bool flag = false;
+    int num = 0;
+    foreach (BuildPreview buildPreview in this.buildPreviews)
+    {
+      if (buildPreview.coverObjId != 0)
+      {
+        if (buildPreview.willRemoveCover)
+        {
+          int error = 0;
+          if (this.actionBuild.DoUpgradeObject(buildPreview.coverObjId, buildPreview.item.Grade, 0, out error))
+            ++num;
+          if (error == 1)
+            flag = true;
+          this.factory.planet.physics.SetPlanetPhysicsColliderDirty();
+        }
+        BuildingParameters buildingParameters = new BuildingParameters();
+        buildingParameters.CopyFromBuildPreview(buildPreview);
+        if (buildingParameters.PasteToFactoryObject(buildPreview.coverObjId, this.factory))
+        {
+          if (buildPreview.coverObjId > 0)
+            this.factory.EntityAutoReplenishIfNeeded(buildPreview.coverObjId, Vector2.zero);
+          ++num;
+        }
+        buildPreview.objId = buildPreview.coverObjId;
+      }
+    }
+    if (num > 0)
+      VFAudio.Create("ui-click-2", (Transform) null, Vector3.zero, true, 7);
+    if (flag)
+    {
+      VFAudio.Create("ui-error", (Transform) null, Vector3.zero, true, 5);
+      UIRealtimeTip.Popup("升级物品不足".Translate(), false);
+    }
+    foreach (BuildPreview buildPreview in this.buildPreviews)
+    {
+      if (buildPreview.condition == EBuildCondition.Ok && buildPreview.objId != 0)
+      {
+        if (buildPreview.outputObjId != 0)
+          this.factory.WriteObjectConn(buildPreview.objId, buildPreview.outputFromSlot, true, buildPreview.outputObjId, buildPreview.outputToSlot);
+        else if (buildPreview.output != null)
+          this.factory.WriteObjectConn(buildPreview.objId, buildPreview.outputFromSlot, true, buildPreview.output.objId, buildPreview.outputToSlot);
+        if (buildPreview.inputObjId != 0)
+          this.factory.WriteObjectConn(buildPreview.objId, buildPreview.inputToSlot, false, buildPreview.inputObjId, buildPreview.inputFromSlot);
+        else if (buildPreview.input != null)
+          this.factory.WriteObjectConn(buildPreview.objId, buildPreview.inputToSlot, false, buildPreview.input.objId, buildPreview.inputFromSlot);
+      }
+    }
+    if (!this.multiLevelCovering && PlayerController.buildTargetAutoMove)
+      this.actionBuild.buildTargetPositionWanted = this.castGroundPosSnapped;
+    foreach (BuildPreview buildPreview in this.buildPreviews)
+    {
+      if (buildPreview.desc.isStorage)
+        this.factory.transport.RefreshDispenserOnStoragePrebuildBuild(buildPreview.objId);
+    }
+    GC.Collect();
+  }
+
+  public override void UpdatePreviewModels(BuildModel model)
+  {
+    model.previewModelCursor = 0;
+    for (int index = 0; index < this.buildPreviews.Count; ++index)
+    {
+      BuildPreview buildPreview = this.buildPreviews[index];
+      if (buildPreview.needModel)
+        model.AddPreviewModel(buildPreview);
+    }
+    for (int previewModelCursor = model.previewModelCursor; previewModelCursor < model.previewModelPoolLength; ++previewModelCursor)
+      model.DisablePreviewModel(previewModelCursor);
+  }
+
+  public override void UpdatePreviewModelConditions(BuildModel model)
+  {
+    foreach (BuildPreview buildPreview in this.buildPreviews)
+    {
+      if (buildPreview.previewIndex >= 0)
+      {
+        Pose pose = model.SetPreviewModelPose(buildPreview);
+        if (buildPreview.item.prefabDesc.isInserter)
+        {
+          bool t1 = buildPreview.input != null || buildPreview.inputObjId != 0 && !this.ObjectIsBelt(buildPreview.inputObjId);
+          bool t2 = buildPreview.output != null || buildPreview.outputObjId != 0 && !this.ObjectIsBelt(buildPreview.outputObjId);
+          Quaternion rotation = pose.rotation;
+          rotation.w = -rotation.w;
+          Material originMaterial = Configs.builtin.previewErrorMat_Inserter;
+          if (buildPreview.condition == EBuildCondition.Ok)
+            originMaterial = Configs.builtin.previewOkMat_Inserter;
+          else if (buildPreview.condition == EBuildCondition.NeedConn)
+            originMaterial = Configs.builtin.previewIgnoreMat_Inserter;
+          Material material = model.SetPreviewModelMaterial(buildPreview.previewIndex, originMaterial);
+          material.SetVector("_Position1", this.Vector3BoolToVector4(rotation * (buildPreview.lpos - pose.position), t1));
+          material.SetVector("_Position2", this.Vector3BoolToVector4(rotation * (buildPreview.lpos2 - pose.position), t2));
+          material.SetVector("_Rotation1", this.QuaternionToVector4(rotation * buildPreview.lrot));
+          material.SetVector("_Rotation2", this.QuaternionToVector4(rotation * buildPreview.lrot2));
+        }
+        else
+          model.SetPreviewModelMaterial(buildPreview.previewIndex, buildPreview.condition == EBuildCondition.Ok ? Configs.builtin.previewOkMat : Configs.builtin.previewErrorMat);
+      }
+    }
+  }
+
+  public override void UpdateGizmos(BuildModel model)
+  {
+    base.UpdateGizmos(model);
+    int num = 1;
+    List<BuildPreview> templatePreviews = this.actionBuild.templatePreviews;
+    if (templatePreviews.Count > 0)
+      num = templatePreviews.Count;
+    int index1 = this.buildPreviews.Count - num;
+    if (index1 < 0)
+      index1 = 0;
+    BuildPreview buildPreview = this.buildPreviews.Count > 0 ? this.buildPreviews[index1] : (BuildPreview) null;
+    if (buildPreview == null)
+      return;
+    if (buildPreview.desc.minerType == EMinerType.Vein)
+    {
+      model.previewGizmoOn = true;
+      int resourceId = 0;
+      long count = 0;
+      int index2 = 0;
+      if (buildPreview.desc.isVeinCollector)
+        index2 = 2048;
+      for (; buildPreview.parameters != null && index2 < buildPreview.paramCount; ++index2)
+      {
+        VeinData veinData = this.factory.veinPool[buildPreview.parameters[index2]];
+        if (resourceId == 0)
+          resourceId = veinData.productId;
+        count += (long) veinData.amount;
+      }
+      if (GameMain.data.gameDesc.isInfiniteResource)
+        count = (count + 500000000L) / 1000000000L;
+      if (resourceId > 0 && count > 0L)
+        UIResourceTip.Show(buildPreview.lpos + buildPreview.lrot.Up() * 3f, resourceId, count, 0.0f);
+    }
+    if ((buildPreview.desc.portPoses == null || buildPreview.desc.portPoses.Length == 0) && (buildPreview.desc.slotPoses == null || buildPreview.desc.slotPoses.Length == 0))
+      return;
+    model.previewGizmoOn = true;
+  }
+
+  public override void NotifyBuilt(int preObjId, int postObjId)
+  {
+    base.NotifyBuilt(preObjId, postObjId);
+    if (this.castObjectId != preObjId)
+      return;
+    this.castObjectId = postObjId;
+  }
+
+  public override void NotifyDismantled(int objId)
+  {
+    base.NotifyDismantled(objId);
+    if (this.castObjectId != objId)
+      return;
+    this.castObjectId = 0;
+  }
+
+  public override void EscLogic()
+  {
+    int num1 = !VFInput._godModeMechaMove ? 1 : 0;
+    bool flag1 = VFInput.rtsCancel.onDown || VFInput.escKey.onDown || VFInput.escape || VFInput._buildModeKey;
+    bool flag2 = !VFInput.onGUI && VFInput.inScreen;
+    int num2 = flag1 ? 1 : 0;
+    if ((num1 & num2 & (flag2 ? 1 : 0)) == 0)
+      return;
+    VFInput.UseBuildKey();
+    VFInput.UseEscape();
+    VFInput.UseMouseRight();
+    if (this.controller.cmd.stage == 0)
+    {
+      this.player.SetHandItems(0, 0);
+      this._Close();
+    }
+    else
+      this.controller.cmd.stage = 0;
+  }
+}
