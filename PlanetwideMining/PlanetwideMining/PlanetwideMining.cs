@@ -1,16 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using BepInEx;
 using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;
-
-
-// [assembly: InternalsVisibleTo("PlanetwideMining")]
-// [assembly: IgnoresAccessChecksTo("BuildTool")]
 
 namespace PlanetwideMining
 {
@@ -129,34 +123,94 @@ namespace PlanetwideMining
             ref int[] ____overlappedIds
         )
         {
-            __result = CheckBuildConditions(
-                __instance, // required
-                ref __result, // required
-                ref ____tmp_ids, // BuildTool._tmp_ids
-                ref ____tmp_cols, // BuildTool._tmp_cols
-                ref ___tmpInhandId,
-                ref ___tmpInhandCount,
-                ref ___tmpPackage,
-                ref ____overlappedCount,
-                ref ____overlappedIds
-            );
+            // __result = CheckBuildConditions(
+            //     __instance, // required
+            //     ref __result, // required
+            //     ref ____tmp_ids, // BuildTool._tmp_ids
+            //     ref ____tmp_cols, // BuildTool._tmp_cols
+            //     ref ___tmpInhandId,
+            //     ref ___tmpInhandCount,
+            //     ref ___tmpPackage,
+            //     ref ____overlappedCount,
+            //     ref ____overlappedIds
+            // );
 
-            return false;
+
+            bool flagRunOriginalMethod = true;
+
+            // Check if only miner to be build
+            var pr = __instance.buildPreviews;
+            if (pr != null && pr.Count == 1)
+            {
+                for (int i = 0; i < pr.Count; i++)
+                {
+                    var element = pr[i];
+                    var desc = element.desc;
+                    if (desc != null)
+                    {
+                        if (desc.veinMiner)
+                        {
+                            Array.Clear(____tmp_ids, 0, ____tmp_ids.Length);
+
+                            PrebuildData prebuildData = default(PrebuildData);
+
+                            VeinData[] veinPool = __instance.factory.veinPool;
+
+                            prebuildData.InitParametersArray(veinPool.Length);
+
+                            if (prebuildData.parameters != null)
+                            {
+                                EVeinType targetVeinType = PlanetwideMining.ResourceForGlobalMining;
+
+                                List<int> newPrebuildDataParameters = new List<int>();
+
+                                for (int iaa = 0; iaa < veinPool.Length; iaa++)
+                                {
+                                    if (veinPool[iaa].type != targetVeinType) continue;
+                                    newPrebuildDataParameters.Add(veinPool[iaa].id);
+                                }
+
+                                prebuildData.parameters = newPrebuildDataParameters.ToArray();
+                            }
+
+                            prebuildData.paramCount = prebuildData.parameters.Length; // init in `InitParametersArray`
+                            prebuildData.ArrageParametersArray();
+
+                            if (element.desc.isVeinCollector)
+                            {
+                                if (element.paramCount == 0)
+                                {
+                                    element.parameters = new int[2048];
+                                    element.paramCount = 2048;
+                                }
+
+                                if (prebuildData.paramCount > 0)
+                                {
+                                    Array.Resize(ref element.parameters, element.paramCount + prebuildData.paramCount);
+                                    Array.Copy(prebuildData.parameters, 0, element.parameters, element.paramCount, prebuildData.paramCount);
+                                    element.paramCount += prebuildData.paramCount;
+                                }
+                            }
+                            else
+                            {
+                                element.parameters = prebuildData.parameters;
+                                element.paramCount = prebuildData.paramCount;
+                            }
+
+                            if (prebuildData.paramCount == 0)
+                            {
+                                element.condition = EBuildCondition.NeedResource;
+                            }
+
+                            __result = true;
+                            flagRunOriginalMethod = false;
+                        }
+                    }
+                }
+            }
+
+            // More than 1 building in build previews
+            return flagRunOriginalMethod;
         }
     }
 }
-
-
-// namespace System.Runtime.CompilerServices
-// {
-//     [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
-//     public class IgnoresAccessChecksToAttribute : Attribute
-//     {
-//         public IgnoresAccessChecksToAttribute(string assemblyName)
-//         {
-//             AssemblyName = assemblyName;
-//         }
-//
-//         public string AssemblyName { get; }
-//     }
-// }

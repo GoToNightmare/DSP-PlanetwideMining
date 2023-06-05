@@ -32,8 +32,12 @@
         <ErrorReport>prompt</ErrorReport>
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
+    <PropertyGroup>
+      <PostBuildEvent>copy "C:\GitHub\DSP-PlanetwideMining\PlanetwideMining\PlanetwideMining\bin\Debug\PlanetwideMining.dll" "C:\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\plugins\DSP_SimpleMods-PlanetwideMining-0.0.7\PlanetwideMining.dll"</PostBuildEvent>
+    </PropertyGroup>
     <ItemGroup>
         <Content Include="DecompiledData.txt" />
+        <Compile Include="PlanetMiningExample.cs" />
         <Compile Include="PlanetwideMining.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="PlanetwideMining_Mod.cs" />
