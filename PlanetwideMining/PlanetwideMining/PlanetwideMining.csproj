@@ -37,10 +37,8 @@
     </PropertyGroup>
     <ItemGroup>
         <Content Include="DecompiledData.txt" />
-        <Compile Include="PlanetMiningExample.cs" />
         <Compile Include="PlanetwideMining.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
-        <Compile Include="PlanetwideMining_Mod.cs" />
         <Content Include="OtherData.txt" />
     </ItemGroup>
     <ItemGroup>
