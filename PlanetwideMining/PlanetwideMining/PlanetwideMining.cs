@@ -22,19 +22,8 @@ namespace PlanetwideMining
         {
             Logger.LogInfo($"Plugin {PluginName} is loaded!");
 
-            var harmony = new Harmony("PlanetwideMining");
+            var harmony = new Harmony(PluginName);
             harmony.PatchAll();
-
-            MakeReferences();
-        }
-
-        private void MakeReferences()
-        {
-            // BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Static;
-            //
-            // string filedName = "_tmp_ids";
-            // FieldInfo finfo = typeof(BuildTool).GetField(filedName, bindingFlags);
-            // var result = finfo.GetValue(null) as int[];
         }
 
 
@@ -123,22 +112,9 @@ namespace PlanetwideMining
             ref int[] ____overlappedIds
         )
         {
-            // __result = CheckBuildConditions(
-            //     __instance, // required
-            //     ref __result, // required
-            //     ref ____tmp_ids, // BuildTool._tmp_ids
-            //     ref ____tmp_cols, // BuildTool._tmp_cols
-            //     ref ___tmpInhandId,
-            //     ref ___tmpInhandCount,
-            //     ref ___tmpPackage,
-            //     ref ____overlappedCount,
-            //     ref ____overlappedIds
-            // );
-
-
             bool flagRunOriginalMethod = true;
 
-            // Check if only miner to be build
+            // Check if only 1 miner to be build
             var pr = __instance.buildPreviews;
             if (pr != null && pr.Count == 1)
             {
@@ -209,7 +185,7 @@ namespace PlanetwideMining
                 }
             }
 
-            // More than 1 building in build previews
+            // Original method if more than 1 building in build previews or its not a vein miner
             return flagRunOriginalMethod;
         }
     }
