@@ -31,7 +31,12 @@ namespace PlanetwideMining
         {
             if (Input.GetKeyDown(KeyCode.PageUp))
             {
-                SwitchEnumValue();
+                SwitchEnumValue(1);
+            }
+
+            if (Input.GetKeyDown(KeyCode.PageDown))
+            {
+                SwitchEnumValue(-1);
             }
 
             if (Input.GetKeyDown(KeyCode.Keypad1))
@@ -63,13 +68,40 @@ namespace PlanetwideMining
         }
 
 
-        private void SwitchEnumValue()
-        {
-            Assert.NotNull(ResourceTypes);
-            Assert.True(ResourceTypes.Count > 0);
+        private int LastUsedIndex { get; set; }
 
-            var newElement = ResourceTypes.SkipWhile(x => x != ResourceForGlobalMining).Skip(1).DefaultIfEmpty(ResourceTypes[0]).FirstOrDefault();
-            ResourceForGlobalMining = newElement;
+
+        private void SwitchEnumValue(int indexChange)
+        {
+            var newIndex = LastUsedIndex + indexChange;
+
+            if (!IndexInRange(newIndex))
+            {
+                if (indexChange > 0)
+                {
+                    newIndex = 0;
+                }
+                else
+                {
+                    newIndex = ResourceTypes.Count - 1;
+                }
+            }
+
+            LastUsedIndex = newIndex;
+
+            ResourceForGlobalMining = ResourceTypes[newIndex];
+        }
+
+
+        private bool IndexInRange(int index)
+        {
+            var totalElements = ResourceTypes.Count;
+            if (index >= 0 && index < totalElements)
+            {
+                return true;
+            }
+
+            return false;
         }
 
 
@@ -82,7 +114,7 @@ namespace PlanetwideMining
             EVeinType.Titanium, // Titanium Ore
             EVeinType.Stone, // Stone
             EVeinType.Coal, // Coal
-            // EVeinType.Oil, 
+            EVeinType.Oil, // Oil, should not be mined
             EVeinType.Fireice, // Fire Ice
             EVeinType.Diamond, // Kimberlite Ore
             EVeinType.Fractal, // Fractal Silicon
@@ -90,7 +122,7 @@ namespace PlanetwideMining
             EVeinType.Grat, // Optical Grating Crystal
             EVeinType.Bamboo, // Spiniform Stalagmite Crystal
             EVeinType.Mag, // Unipolar Magnet
-            // EVeinType.Max, 
+            // EVeinType.Max, // WHAT IS THAT
         };
     }
 
