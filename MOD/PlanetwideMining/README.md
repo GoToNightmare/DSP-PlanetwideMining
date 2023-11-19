@@ -6,6 +6,7 @@ This mod lets you mine resources everywhere, planetwide.
 ### Features
 - Allows to place "Mining machine" everywhere, without veins.
 - KeyCode.PageUp - key to switch resource type.
+- Numpad1, Numpad2, Numpad3, Numpad4, Numpad5, to change game speed. (`SpeedControlsEnabled = false` in `BepInEx\config` to disable it)
 
 ### Installation(ModManager)
 1. Click on install with ModManager and follow the steps.
@@ -24,6 +25,9 @@ This mod lets you mine resources everywhere, planetwide.
 - If you have any mod ideas, you can make suggestions [here](https://github.com/GoToNightmare/DSP-PlanetwideMining/issues)
 
 ### Updates
+
+#### v0.0.10
+- Speed controlls now can be disabled.
 
 #### v0.0.9
 - Removed collisions check and attempt to improve mod compatibility. Blueprints not suppored.

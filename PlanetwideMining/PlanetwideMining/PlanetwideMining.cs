@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using BepInEx;
+using BepInEx.Configuration;
 using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;
@@ -11,19 +12,37 @@ namespace PlanetwideMining
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public class PlanetwideMining : BaseUnityPlugin
     {
-        private const string PluginGuid = "930f5bae-66d2-4917-988b-162fe2456643";
+        private const string PluginGuid = "PlanetwideMining";
         private const string PluginName = "PlanetwideMining";
         private const string PluginVersion = "0.1";
 
         public static EVeinType ResourceForGlobalMining = EVeinType.None;
 
 
+        public static ConfigEntry<bool> SpeedControlsEnabled;
+        private bool speedControlsEnabledField;
+
+
         private void Awake()
         {
             Logger.LogInfo($"Plugin {PluginName} is loaded!");
 
+            InitConfig(Config);
+
             var harmony = new Harmony(PluginName);
             harmony.PatchAll();
+        }
+
+
+        private void InitConfig(ConfigFile config)
+        {
+            SpeedControlsEnabled = config.Bind("1. SpeedControls", nameof(SpeedControlsEnabled),
+                true, new ConfigDescription("SpeedControlsEnabled", new AcceptableValueRange<bool>(false, true)));
+
+            if (SpeedControlsEnabled != null)
+            {
+                speedControlsEnabledField = SpeedControlsEnabled.Value;
+            }
         }
 
 
@@ -39,25 +58,29 @@ namespace PlanetwideMining
                 SwitchEnumValue(-1);
             }
 
-            if (Input.GetKeyDown(KeyCode.Keypad1))
+
+            if (speedControlsEnabledField)
             {
-                SwitchGameSpeed(1f);
-            }
-            else if (Input.GetKeyDown(KeyCode.Keypad2))
-            {
-                SwitchGameSpeed(2f);
-            }
-            else if (Input.GetKeyDown(KeyCode.Keypad3))
-            {
-                SwitchGameSpeed(4f);
-            }
-            else if (Input.GetKeyDown(KeyCode.Keypad4))
-            {
-                SwitchGameSpeed(8f);
-            }
-            else if (Input.GetKeyDown(KeyCode.Keypad5))
-            {
-                SwitchGameSpeed(16f);
+                if (Input.GetKeyDown(KeyCode.Keypad1))
+                {
+                    SwitchGameSpeed(1f);
+                }
+                else if (Input.GetKeyDown(KeyCode.Keypad2))
+                {
+                    SwitchGameSpeed(2f);
+                }
+                else if (Input.GetKeyDown(KeyCode.Keypad3))
+                {
+                    SwitchGameSpeed(4f);
+                }
+                else if (Input.GetKeyDown(KeyCode.Keypad4))
+                {
+                    SwitchGameSpeed(8f);
+                }
+                else if (Input.GetKeyDown(KeyCode.Keypad5))
+                {
+                    SwitchGameSpeed(16f);
+                }
             }
         }
 
