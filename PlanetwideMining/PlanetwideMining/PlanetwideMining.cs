@@ -205,7 +205,7 @@ namespace PlanetwideMining
                             }
 
                             prebuildData.paramCount = prebuildData.parameters.Length; // init in `InitParametersArray`
-                            prebuildData.ArrageParametersArray();
+                            prebuildData.ArrangeParametersArray();
 
                             if (element.desc.isVeinCollector)
                             {
