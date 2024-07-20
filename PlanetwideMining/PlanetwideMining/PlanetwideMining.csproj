@@ -33,7 +33,7 @@
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
     <PropertyGroup>
-      <PostBuildEvent>copy "C:\GitHub\DSP-PlanetwideMining\PlanetwideMining\PlanetwideMining\bin\Debug\PlanetwideMining.dll" "C:\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\plugins\DSP_SimpleMods-PlanetwideMining-0.0.10\PlanetwideMining.dll"</PostBuildEvent>
+      <PostBuildEvent>copy "C:\GitHub\DSP-PlanetwideMining\PlanetwideMining\PlanetwideMining\bin\Debug\PlanetwideMining.dll" "C:\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\plugins\DSP_SimpleMods-PlanetwideMining-0.0.11\PlanetwideMining.dll"</PostBuildEvent>
     </PropertyGroup>
     <ItemGroup>
         <Content Include="DecompiledData.txt" />

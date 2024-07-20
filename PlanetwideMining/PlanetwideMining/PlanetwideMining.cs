@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -14,7 +13,7 @@ namespace PlanetwideMining
     {
         private const string PluginGuid = "PlanetwideMining";
         private const string PluginName = "PlanetwideMining";
-        private const string PluginVersion = "0.1";
+        private const string PluginVersion = "0.12";
 
         public static EVeinType ResourceForGlobalMining = EVeinType.None;
 
@@ -169,76 +168,79 @@ namespace PlanetwideMining
         {
             bool flagRunOriginalMethod = true;
 
-            // Check if only 1 miner to be build
-            var pr = __instance.buildPreviews;
-            if (pr != null && pr.Count == 1)
+            EVeinType targetVeinType = PlanetwideMining.ResourceForGlobalMining;
+            if (targetVeinType != EVeinType.None)
             {
-                for (int i = 0; i < pr.Count; i++)
+                PlanetData localPlanetData = GameMain.localPlanet;
+                if (localPlanetData != null && localPlanetData.type != EPlanetType.Gas)
                 {
-                    var element = pr[i];
-                    var desc = element.desc;
-                    if (desc != null)
+                    var localPlanetFactory = localPlanetData.factory;
+                    if (localPlanetFactory != null)
                     {
-                        if (desc.veinMiner)
+                        var buildPreviews = __instance.buildPreviews;
+                        bool isOnlyOneMinerToBeBuild = buildPreviews.Count == 1;
+                        if (isOnlyOneMinerToBeBuild)
                         {
-                            Array.Clear(____tmp_ids, 0, ____tmp_ids.Length);
-
-                            PrebuildData prebuildData = default(PrebuildData);
-
-                            VeinData[] veinPool = __instance.factory.veinPool;
-
-                            prebuildData.InitParametersArray(veinPool.Length);
-
-                            if (prebuildData.parameters != null)
+                            var buildPreview = buildPreviews[0];
+                            if (buildPreview != null)
                             {
-                                EVeinType targetVeinType = PlanetwideMining.ResourceForGlobalMining;
-
-                                List<int> newPrebuildDataParameters = new List<int>();
-
-                                for (int iaa = 0; iaa < veinPool.Length; iaa++)
+                                if (buildPreview.paramCount == 0)
                                 {
-                                    if (veinPool[iaa].type != targetVeinType) continue;
-                                    newPrebuildDataParameters.Add(veinPool[iaa].id);
+                                    buildPreview.parameters = new int[2048];
+                                    buildPreview.paramCount = 2048;
                                 }
 
-                                prebuildData.parameters = newPrebuildDataParameters.ToArray();
-                            }
 
-                            prebuildData.paramCount = prebuildData.parameters.Length; // init in `InitParametersArray`
-                            prebuildData.ArrangeParametersArray();
-
-                            if (element.desc.isVeinCollector)
-                            {
-                                if (element.paramCount == 0)
+                                if (buildPreview.desc.isVeinCollector)
                                 {
-                                    element.parameters = new int[2048];
-                                    element.paramCount = 2048;
+                                    List<int> newPrebuildDataParameters = new List<int>();
+
+                                    var veinPool = localPlanetFactory.veinPool;
+                                    foreach (VeinData veinData in veinPool)
+                                    {
+                                        var id = veinData.id;
+                                        var type = veinData.type;
+                                        if (type == targetVeinType)
+                                        {
+                                            newPrebuildDataParameters.Add(id);
+                                        }
+                                    }
+
+
+                                    var totalVeins = newPrebuildDataParameters.Count;
+                                    if (totalVeins > 0)
+                                    {
+                                        PrebuildData prebuildData = default(PrebuildData);
+                                        prebuildData.InitParametersArray(veinPool.Length);
+
+
+                                        prebuildData.parameters = newPrebuildDataParameters.ToArray();
+                                        prebuildData.paramCount = totalVeins;
+                                        prebuildData.ArrangeParametersArray();
+
+
+                                        // Not sure wtf it's needed in source code?
+                                        Array.Resize(ref buildPreview.parameters, buildPreview.paramCount + prebuildData.paramCount);
+                                        Array.Copy(prebuildData.parameters, 0, buildPreview.parameters, buildPreview.paramCount, prebuildData.paramCount);
+                                        buildPreview.paramCount += prebuildData.paramCount;
+                                    }
+                                    else
+                                    {
+                                        buildPreview.condition = EBuildCondition.NeedResource;
+                                    }
+
+
+                                    Array.Clear(____tmp_ids, 0, ____tmp_ids.Length);
+
+                                    __result = true;
+                                    flagRunOriginalMethod = false;
                                 }
-
-                                if (prebuildData.paramCount > 0)
-                                {
-                                    Array.Resize(ref element.parameters, element.paramCount + prebuildData.paramCount);
-                                    Array.Copy(prebuildData.parameters, 0, element.parameters, element.paramCount, prebuildData.paramCount);
-                                    element.paramCount += prebuildData.paramCount;
-                                }
                             }
-                            else
-                            {
-                                element.parameters = prebuildData.parameters;
-                                element.paramCount = prebuildData.paramCount;
-                            }
-
-                            if (prebuildData.paramCount == 0)
-                            {
-                                element.condition = EBuildCondition.NeedResource;
-                            }
-
-                            __result = true;
-                            flagRunOriginalMethod = false;
                         }
                     }
                 }
             }
+
 
             // Original method if more than 1 building in build previews or its not a vein miner
             return flagRunOriginalMethod;
