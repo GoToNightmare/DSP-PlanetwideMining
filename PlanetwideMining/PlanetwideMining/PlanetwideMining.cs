@@ -191,7 +191,8 @@ namespace PlanetwideMining
                                 }
 
 
-                                if (buildPreview.desc.isVeinCollector)
+                                var desc = buildPreview.desc;
+                                if (desc.isVeinCollector || desc.veinMiner)
                                 {
                                     List<int> newPrebuildDataParameters = new List<int>();
 
