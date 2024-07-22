@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -95,6 +96,10 @@ namespace PlanetwideMining
 
         private void SwitchEnumValue(int indexChange)
         {
+            RefreshResourcesEnumsForCurrentPlanet();
+
+
+            var tempArrayWithAllVeins = veinTypes.OrderBy(v => v).ToArray();
             var newIndex = LastUsedIndex + indexChange;
 
             if (!IndexInRange(newIndex))
@@ -105,19 +110,50 @@ namespace PlanetwideMining
                 }
                 else
                 {
-                    newIndex = ResourceTypes.Count - 1;
+                    newIndex = tempArrayWithAllVeins.Length - 1;
                 }
             }
 
             LastUsedIndex = newIndex;
 
-            ResourceForGlobalMining = ResourceTypes[newIndex];
+            ResourceForGlobalMining = tempArrayWithAllVeins[newIndex];
+        }
+
+
+        private readonly HashSet<EVeinType> veinTypes = new HashSet<EVeinType>();
+
+
+        private void RefreshResourcesEnumsForCurrentPlanet()
+        {
+            var allVeinTypes = veinTypes;
+            allVeinTypes.Clear();
+            allVeinTypes.Add(EVeinType.None); // Add default value, when mod logic is inactive
+
+            PlanetData localPlanetData = GameMain.localPlanet;
+            if (localPlanetData != null)
+            {
+                var localPlanetFactory = localPlanetData.factory;
+                if (localPlanetFactory != null)
+                {
+                    var veinPool = localPlanetFactory.veinPool;
+                    foreach (VeinData veinData in veinPool)
+                    {
+                        var type = veinData.type;
+                        if (allVeinTypes.Contains(type))
+                        {
+                            continue;
+                        }
+
+                        allVeinTypes.Add(type);
+                    }
+                }
+            }
         }
 
 
         private bool IndexInRange(int index)
         {
-            var totalElements = ResourceTypes.Count;
+            var totalElements = veinTypes.Count;
             if (index >= 0 && index < totalElements)
             {
                 return true;
@@ -127,25 +163,25 @@ namespace PlanetwideMining
         }
 
 
-        private static readonly List<EVeinType> ResourceTypes = new List<EVeinType>()
-        {
-            // EVeinType.None,
-            EVeinType.Iron, // Iron Ore
-            EVeinType.Copper, // Copper Ore
-            EVeinType.Silicium, // Silicon Ore
-            EVeinType.Titanium, // Titanium Ore
-            EVeinType.Stone, // Stone
-            EVeinType.Coal, // Coal
-            EVeinType.Oil, // Oil, should not be mined
-            EVeinType.Fireice, // Fire Ice
-            EVeinType.Diamond, // Kimberlite Ore
-            EVeinType.Fractal, // Fractal Silicon
-            EVeinType.Crysrub, // ???
-            EVeinType.Grat, // Optical Grating Crystal
-            EVeinType.Bamboo, // Spiniform Stalagmite Crystal
-            EVeinType.Mag, // Unipolar Magnet
-            // EVeinType.Max, // WHAT IS THAT
-        };
+        // private static readonly List<EVeinType> ResourceTypes = new List<EVeinType>()
+        // {
+        //     // EVeinType.None,
+        //     EVeinType.Iron, // Iron Ore
+        //     EVeinType.Copper, // Copper Ore
+        //     EVeinType.Silicium, // Silicon Ore
+        //     EVeinType.Titanium, // Titanium Ore
+        //     EVeinType.Stone, // Stone
+        //     EVeinType.Coal, // Coal
+        //     EVeinType.Oil, // Oil, should not be mined
+        //     EVeinType.Fireice, // Fire Ice
+        //     EVeinType.Diamond, // Kimberlite Ore
+        //     EVeinType.Fractal, // Fractal Silicon
+        //     EVeinType.Crysrub, // ???
+        //     EVeinType.Grat, // Optical Grating Crystal
+        //     EVeinType.Bamboo, // Spiniform Stalagmite Crystal
+        //     EVeinType.Mag, // Unipolar Magnet
+        //     // EVeinType.Max, // WHAT IS THAT
+        // };
     }
 
 
