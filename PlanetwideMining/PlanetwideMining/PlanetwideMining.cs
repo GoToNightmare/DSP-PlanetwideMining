@@ -14,7 +14,7 @@ namespace PlanetwideMining
     {
         private const string PluginGuid = "PlanetwideMining";
         private const string PluginName = "PlanetwideMining";
-        private const string PluginVersion = "0.12";
+        private const string PluginVersion = "0.0.13";
 
         public static EVeinType ResourceForGlobalMining = EVeinType.None;
 
@@ -163,25 +163,28 @@ namespace PlanetwideMining
         }
 
 
-        // private static readonly List<EVeinType> ResourceTypes = new List<EVeinType>()
-        // {
-        //     // EVeinType.None,
-        //     EVeinType.Iron, // Iron Ore
-        //     EVeinType.Copper, // Copper Ore
-        //     EVeinType.Silicium, // Silicon Ore
-        //     EVeinType.Titanium, // Titanium Ore
-        //     EVeinType.Stone, // Stone
-        //     EVeinType.Coal, // Coal
-        //     EVeinType.Oil, // Oil, should not be mined
-        //     EVeinType.Fireice, // Fire Ice
-        //     EVeinType.Diamond, // Kimberlite Ore
-        //     EVeinType.Fractal, // Fractal Silicon
-        //     EVeinType.Crysrub, // ???
-        //     EVeinType.Grat, // Optical Grating Crystal
-        //     EVeinType.Bamboo, // Spiniform Stalagmite Crystal
-        //     EVeinType.Mag, // Unipolar Magnet
-        //     // EVeinType.Max, // WHAT IS THAT
-        // };
+        /// <summary>
+        /// TODO remove this, not used anymore, only keepts bcs of compatibility patches
+        /// </summary>
+        private static readonly List<EVeinType> ResourceTypes = new List<EVeinType>()
+        {
+            // EVeinType.None,
+            EVeinType.Iron, // Iron Ore
+            EVeinType.Copper, // Copper Ore
+            EVeinType.Silicium, // Silicon Ore
+            EVeinType.Titanium, // Titanium Ore
+            EVeinType.Stone, // Stone
+            EVeinType.Coal, // Coal
+            EVeinType.Oil, // Oil, should not be mined
+            EVeinType.Fireice, // Fire Ice
+            EVeinType.Diamond, // Kimberlite Ore
+            EVeinType.Fractal, // Fractal Silicon
+            EVeinType.Crysrub, // ???
+            EVeinType.Grat, // Optical Grating Crystal
+            EVeinType.Bamboo, // Spiniform Stalagmite Crystal
+            EVeinType.Mag, // Unipolar Magnet
+            // EVeinType.Max, // WHAT IS THAT
+        };
     }
 
 
