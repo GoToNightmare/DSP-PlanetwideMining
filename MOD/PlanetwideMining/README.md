@@ -26,6 +26,19 @@ This mod lets you mine resources everywhere, planetwide.
 
 ### Updates
 
+#### v0.0.14
+- Fix for Batflefield Analysis Base #20
+- Super secret toggle mode for "Num Lock" key that allows to build without collision check, so you could build 10x solar panels in one. Might be bugged. Press once to enable, and another time to disable.
+
+#### v0.0.13
+- Compatibility with different mods
+
+#### v0.0.12
+- Changed code to use `GameMain.localPlanet`
+
+#### v0.0.11
+- Updates for patch
+
 #### v0.0.10
 - Speed controlls now can be disabled.
 

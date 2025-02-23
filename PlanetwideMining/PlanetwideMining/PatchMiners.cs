@@ -27,31 +27,28 @@ public static partial class PatchMiners
 
         if (PlanetwideMining.NumlockStateActive)
         {
-            if (PlanetwideMining.ResourceForGlobalMining != EVeinType.None)
+            // Reset mining state
+            PlanetwideMining.ResourceForGlobalMining = EVeinType.None;
+
+
+            PlanetData localPlanetData = GameMain.localPlanet;
+            if (localPlanetData != null && localPlanetData.type != EPlanetType.Gas)
             {
-                flagRunOriginalMethod = true;
-            }
-            else
-            {
-                PlanetData localPlanetData = GameMain.localPlanet;
-                if (localPlanetData != null && localPlanetData.type != EPlanetType.Gas)
+                var localPlanetFactory = localPlanetData.factory;
+                if (localPlanetFactory != null)
                 {
-                    var localPlanetFactory = localPlanetData.factory;
-                    if (localPlanetFactory != null)
+                    var buildPreviews = __instance.buildPreviews;
+                    bool isOnlyOneMinerToBeBuild = buildPreviews.Count == 1;
+                    if (isOnlyOneMinerToBeBuild)
                     {
-                        var buildPreviews = __instance.buildPreviews;
-                        bool isOnlyOneMinerToBeBuild = buildPreviews.Count == 1;
-                        if (isOnlyOneMinerToBeBuild)
+                        var buildPreview = buildPreviews[0];
+                        if (buildPreview != null)
                         {
-                            var buildPreview = buildPreviews[0];
-                            if (buildPreview != null)
+                            var desc = buildPreview.desc;
+                            if (!desc.isVeinCollector && !desc.veinMiner)
                             {
-                                var desc = buildPreview.desc;
-                                if (!desc.isVeinCollector && !desc.veinMiner)
-                                {
-                                    __result = true;
-                                    flagRunOriginalMethod = false;
-                                }
+                                __result = true;
+                                flagRunOriginalMethod = false;
                             }
                         }
                     }
@@ -76,16 +73,15 @@ public static partial class PatchMiners
                             var buildPreview = buildPreviews[0];
                             if (buildPreview != null)
                             {
-                                if (buildPreview.paramCount == 0)
-                                {
-                                    buildPreview.parameters = new int[2048];
-                                    buildPreview.paramCount = 2048;
-                                }
-
-
                                 var desc = buildPreview.desc;
                                 if (desc.isVeinCollector || desc.veinMiner)
                                 {
+                                    if (buildPreview.paramCount == 0)
+                                    {
+                                        buildPreview.parameters = new int[2048];
+                                        buildPreview.paramCount = 2048;
+                                    }
+
                                     List<int> newPrebuildDataParameters = new List<int>();
 
                                     var veinPool = localPlanetFactory.veinPool;
