@@ -12,7 +12,7 @@ namespace PlanetwideMining
     {
         private const string PluginGuid = "PlanetwideMining";
         private const string PluginName = "PlanetwideMining";
-        private const string PluginVersion = "0.0.13";
+        private const string PluginVersion = "0.0.15";
 
         public static EVeinType ResourceForGlobalMining = EVeinType.None;
 
