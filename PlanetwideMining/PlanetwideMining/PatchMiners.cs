@@ -76,12 +76,6 @@ public static partial class PatchMiners
                                 var desc = buildPreview.desc;
                                 if (desc.isVeinCollector || desc.veinMiner)
                                 {
-                                    if (buildPreview.paramCount == 0)
-                                    {
-                                        buildPreview.parameters = new int[2048];
-                                        buildPreview.paramCount = 2048;
-                                    }
-
                                     List<int> newPrebuildDataParameters = new List<int>();
 
                                     var veinPool = localPlanetFactory.veinPool;
@@ -99,19 +93,8 @@ public static partial class PatchMiners
                                     var totalVeins = newPrebuildDataParameters.Count;
                                     if (totalVeins > 0)
                                     {
-                                        PrebuildData prebuildData = default(PrebuildData);
-                                        prebuildData.InitParametersArray(veinPool.Length);
-
-
-                                        prebuildData.parameters = newPrebuildDataParameters.ToArray();
-                                        prebuildData.paramCount = totalVeins;
-                                        prebuildData.ArrangeParametersArray();
-
-
-                                        // Not sure wtf it's needed in source code?
-                                        Array.Resize(ref buildPreview.parameters, buildPreview.paramCount + prebuildData.paramCount);
-                                        Array.Copy(prebuildData.parameters, 0, buildPreview.parameters, buildPreview.paramCount, prebuildData.paramCount);
-                                        buildPreview.paramCount += prebuildData.paramCount;
+                                        buildPreview.parameters = newPrebuildDataParameters.ToArray();
+                                        buildPreview.paramCount = totalVeins;
                                     }
                                     else
                                     {
